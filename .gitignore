@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+*.swp
+*.swo
+*.swn
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Test artifacts
+/tests/fixtures/generated/
+/tmp/
+
+# Homebrew
+*.bottle.*
+
+# brewmaster runtime
+/tmp/brewmaster-depgraph-*
