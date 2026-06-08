@@ -3,7 +3,6 @@
 set -uo pipefail
 
 DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ALLOW_DATE=false
 # shellcheck source=../lib/brewmaster/core/semver.sh
 source "$DIR/../lib/brewmaster/core/semver.sh"
 
@@ -40,12 +39,10 @@ assert_eq "strip +build"            "1.2.3"   "$(to_semver_3 1.2.3+build5)"
 assert_eq "strip _rev"              "1.2.3"   "$(to_semver_3 1.2.3_1)"
 assert_eq "strip pre-release"       "1.2.3"   "$(to_semver_3 1.2.3-rc.1)"
 assert_false "garbage non-semver"   to_semver_3 "not-a-version"
-assert_false "date rejected (ALLOW_DATE=false)" to_semver_3 "2024.05.01"
-
-ALLOW_DATE=true
-assert_eq "date dot form (ALLOW_DATE=true)"  "2024.5.1" "$(to_semver_3 2024.05.01)"
-assert_eq "date dash form (ALLOW_DATE=true)" "2024.5.1" "$(to_semver_3 2024-05-01)"
-ALLOW_DATE=false
+assert_false "date rejected (default allow_date)" to_semver_3 "2024.05.01"
+assert_false "date rejected (allow_date=false)"   to_semver_3 "2024.05.01" false
+assert_eq "date dot form (allow_date=true)"  "2024.5.1" "$(to_semver_3 2024.05.01 true)"
+assert_eq "date dash form (allow_date=true)" "2024.5.1" "$(to_semver_3 2024-05-01 true)"
 
 # --- bump_kind ---
 assert_eq "major bump"  "major"     "$(bump_kind 1.0.0 2.0.0)"

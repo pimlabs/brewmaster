@@ -23,6 +23,9 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - `--formulae` and `--casks` are now mutually exclusive (error if combined)
 - Cask detection caches the installed cask list once instead of querying per package
 - Report the number of packages skipped due to non-semver versions
+- `to_semver_3` takes `allow_date` as an explicit argument instead of a hidden global
+- `parse_outdated_line` outputs `name|old|new` (dropped unused `op` field) to match the Milestone 5 driver contract
+- Added `--version`/`-V`, a space form for `--level` (e.g. `--level minor`) with validation, and an explicit `upgrade` subcommand (default action)
 
 ---
 

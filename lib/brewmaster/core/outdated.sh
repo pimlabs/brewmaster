@@ -4,8 +4,8 @@
 
 # parse_outdated_line — extract fields from a single `brew outdated --verbose` line.
 # Args:   $1  line, e.g. "name (1.0) < 2.0" or "name (1.0, 1.1) != 2.0"
-# Stdout: "name|old|new|op" where old is the newest installed version
-#         when several are present.
+# Stdout: "name|old|new" where old is the newest installed version when several
+#         are present. Matches the driver_outdated contract (Milestone 5).
 # Return: 0 on match, 1 otherwise.
 parse_outdated_line() {
   local line="$1"
@@ -13,11 +13,10 @@ parse_outdated_line() {
   if [[ $line =~ $re ]]; then
     local name="${BASH_REMATCH[1]}"
     local olds="${BASH_REMATCH[2]}"
-    local op="${BASH_REMATCH[3]}"
     local new="${BASH_REMATCH[4]}"
     local old
     old="$(echo "$olds" | awk -F',' '{gsub(/^[ \t]+|[ \t]+$/,"",$NF); print $NF}')"
-    echo "${name}|${old}|${new}|${op}"
+    echo "${name}|${old}|${new}"
     return 0
   fi
   return 1

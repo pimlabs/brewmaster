@@ -2,6 +2,8 @@
 [ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
 set -euo pipefail
 
+BREWMASTER_VERSION="0.1.0"
+
 # Global configuration (overridden by CLI flags below).
 LEVEL="minor"        # patch | minor | major  (exact category; exclusive by default)
 OR_LOWER=false       # if true: inclusive (e.g. minor => minor+patch; major => all)
@@ -13,16 +15,21 @@ VERBOSE=false
 
 usage() {
   cat <<'USAGE'
-Usage: brewmaster [options]
+Usage: brewmaster [command] [options]
+
+Commands:
+  upgrade                    Selective upgrade by semver bump level (default).
 
 Options:
   --level=patch|minor|major  Bump category to execute (exclusive). Default: minor.
+                             A space form is also accepted: --level minor
   --or-lower                 Make it inclusive (e.g. minor => minor+patch; major => all).
   --allow-date               Treat date versions (YYYY.MM.DD / YYYY-MM-DD...) as semver-like. Default: false.
   -n, --dry-run              Show the plan without executing.
   --formulae                 Formulae only (skip casks).
   --casks                    Casks only (skip formulae).
   -v, --verbose              More detailed output.
+  -V, --version              Print version and exit.
   -h, --help                 Show this help.
 
 Notes:
@@ -34,21 +41,37 @@ USAGE
 # logv — print a debug line to stderr when VERBOSE is true.
 logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 
+# --- Subcommand (defaults to "upgrade"; reserved for future commands) ---
+COMMAND="upgrade"
+if [[ $# -gt 0 && "$1" != -* ]]; then
+  case "$1" in
+    upgrade) COMMAND="$1"; shift ;;
+    *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
+  esac
+fi
+
 # --- Argument parsing ---
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --level=patch|--level=minor|--level=major) LEVEL="${1#*=}" ;;
+    --level=*)       LEVEL="${1#*=}" ;;
+    --level)         shift; LEVEL="${1-}" ;;
     --or-lower)      OR_LOWER=true ;;
     --allow-date)    ALLOW_DATE=true ;;
     -n|--dry-run)    DRY_RUN=true ;;
     --formulae)      ONLY_FORMULAE=true ;;
     --casks)         ONLY_CASKS=true ;;
     -v|--verbose)    VERBOSE=true ;;
+    -V|--version)    echo "brewmaster ${BREWMASTER_VERSION}"; exit 0 ;;
     -h|--help)       usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
   esac
   shift
 done
+
+case "$LEVEL" in
+  patch|minor|major) ;;
+  *) echo "Error: invalid --level '$LEVEL' (expected patch|minor|major)." >&2; exit 1 ;;
+esac
 
 if $ONLY_FORMULAE && $ONLY_CASKS; then
   echo "Error: --formulae and --casks are mutually exclusive." >&2
@@ -69,4 +92,6 @@ source "$LIB_DIR/core/semver.sh"
 source "$LIB_DIR/core/outdated.sh"
 source "$LIB_DIR/core/upgrade.sh"
 
-run_upgrade
+case "$COMMAND" in
+  upgrade) run_upgrade ;;
+esac

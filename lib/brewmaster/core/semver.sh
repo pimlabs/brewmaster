@@ -4,16 +4,17 @@
 
 # to_semver_3 — normalize a raw version string to "MAJOR.MINOR.PATCH".
 # Args:    $1  raw version (e.g. "1.2", "1.2.3_1", "1.2.3-rc.1", "2024.05.01")
+#          $2  allow_date (true|false, default false) — treat date versions as semver
 # Stdout:  normalized "M.m.p"
-# Return:  0 on success; 1 if not parseable, or a date version while ALLOW_DATE=false
-# Globals: ALLOW_DATE (bool) — when false, date-style versions are rejected.
+# Return:  0 on success; 1 if not parseable, or a date version while allow_date=false
 to_semver_3() {
   local raw="$1"
+  local allow_date="${2:-false}"
   local s="$raw"
 
   # Date/timestamp format (YYYY.MM.DD / YYYY-MM-DD, optional T... / -hash)
   if [[ "$raw" =~ ^([0-9]{4})[.-]([0-9]{2})[.-]([0-9]{2})(T[^ ]*)?([_-][^ ]*)?$ ]]; then
-    $ALLOW_DATE || return 1
+    $allow_date || return 1
     local yy=$((10#${BASH_REMATCH[1]}))
     local mm=$((10#${BASH_REMATCH[2]}))
     local dd=$((10#${BASH_REMATCH[3]}))

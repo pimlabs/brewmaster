@@ -19,7 +19,7 @@ run_upgrade() {
   local out; out="$(brew outdated --verbose 2>/dev/null || true)"
   local -a upgrade_list=() report_rows=()
   local skipped_nonsemver=0
-  local ln parsed name old_raw new_raw op old_sv new_sv kind
+  local ln parsed name old_raw new_raw old_sv new_sv kind
 
   while IFS= read -r ln; do
     case "$ln" in
@@ -27,7 +27,7 @@ run_upgrade() {
         if ! parsed="$(parse_outdated_line "$ln")"; then
           logv "Skip (unparseable): $ln"; continue
         fi
-        IFS='|' read -r name old_raw new_raw op <<<"$parsed"
+        IFS='|' read -r name old_raw new_raw <<<"$parsed"
 
         if $ONLY_FORMULAE && is_cask "$name"; then
           logv "Skip cask (formulae only): $name"; continue
@@ -35,11 +35,11 @@ run_upgrade() {
           logv "Skip formula (casks only): $name"; continue
         fi
 
-        if ! old_sv="$(to_semver_3 "$old_raw")"; then
+        if ! old_sv="$(to_semver_3 "$old_raw" "$ALLOW_DATE")"; then
           logv "Skip (old non-semver): $name $old_raw -> $new_raw"
           skipped_nonsemver=$((skipped_nonsemver+1)); continue
         fi
-        if ! new_sv="$(to_semver_3 "$new_raw")"; then
+        if ! new_sv="$(to_semver_3 "$new_raw" "$ALLOW_DATE")"; then
           logv "Skip (new non-semver): $name $old_raw -> $new_raw"
           skipped_nonsemver=$((skipped_nonsemver+1)); continue
         fi

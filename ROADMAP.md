@@ -95,9 +95,12 @@ brewmaster --level=major --or-lower --dry-run
 
 ```bash
 # semver.sh
-to_semver_3 "$raw_version"                        # stdout: "M.m.p" | return 1 on failure
+to_semver_3 "$raw_version" "$allow_date"          # stdout: "M.m.p" | return 1 on failure (allow_date defaults false)
 bump_kind "$old_sv" "$new_sv"                     # stdout: major|minor|patch|downgrade|none
 allow_by_level "$kind" "$level" "$or_lower"       # return 0/1
+
+# outdated.sh
+parse_outdated_line "$line"                       # stdout: "name|old|new" | return 1 (matches driver_outdated)
 ```
 
 ---
