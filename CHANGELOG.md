@@ -26,6 +26,10 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - `to_semver_3` takes `allow_date` as an explicit argument instead of a hidden global
 - `parse_outdated_line` outputs `name|old|new` (dropped unused `op` field) to match the Milestone 5 driver contract
 - Added `--version`/`-V`, a space form for `--level` (e.g. `--level minor`) with validation, and an explicit `upgrade` subcommand (default action)
+- Level can be selected with `--patch`/`--minor`/`--major` (mutually exclusive); `--level=` remains an alias
+- `upgrade` accepts positional package names to limit the run (e.g. `brewmaster upgrade git node --minor`)
+- **Changed the default bump level from `minor` to `patch`** — the most conservative default, so a bare `brewmaster upgrade` no longer skips patch/security fixes
+- CLI behavior tests (`tests/test_cli.sh`) covering level flags, the package filter, and exit codes
 
 ---
 

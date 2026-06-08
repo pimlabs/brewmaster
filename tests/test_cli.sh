@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# CLI behavior tests for bin/brewmaster using a mock `brew` on PATH.
+# Safe: the mock never touches real packages.
+set -uo pipefail
+
+DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BM="$DIR/../bin/brewmaster"
+
+MOCK="$(mktemp -d)"
+trap 'rm -rf "$MOCK"' EXIT
+cat > "$MOCK/brew" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  list)     echo "somecask" ;;                                  # brew list --cask
+  outdated) printf 'foo (1.0.0) < 1.0.5\nbar (2.1.0) < 2.4.0\nbaz (3.0.0) < 4.0.0\n' ;;
+  upgrade)  echo "upgraded $2" ;;
+esac
+EOF
+chmod +x "$MOCK/brew"
+
+run()  { PATH="$MOCK:$PATH" "$BM" "$@"; }      # brewmaster with mock brew
+rows() { grep -c '  - ' || true; }             # count candidate rows
+
+pass=0; fail=0
+ok()  { pass=$((pass+1)); }
+bad() { fail=$((fail+1)); echo "FAIL: $1" >&2; }
+
+# 1. default level = patch -> only foo (bar=minor, baz=major excluded)
+out="$(run upgrade --dry-run 2>/dev/null)"
+echo "$out" | grep -q 'level=patch'  && ok || bad "default level should be patch"
+[ "$(echo "$out" | rows)" = "1" ]    && ok || bad "default patch should yield 1 candidate"
+echo "$out" | grep -q '  - foo '     && ok || bad "default patch candidate should be foo"
+
+# 2. --major selects baz
+out="$(run upgrade --major --dry-run 2>/dev/null)"
+echo "$out" | grep -q 'level=major'  && ok || bad "--major header"
+echo "$out" | grep -q '  - baz '     && ok || bad "--major candidate should be baz"
+
+# 3. --level=patch alias == --patch
+a="$(run upgrade --patch    --dry-run 2>/dev/null | grep '  - ')"
+b="$(run upgrade --level=patch --dry-run 2>/dev/null | grep '  - ')"
+[ "$a" = "$b" ] && ok || bad "--level=patch should equal --patch"
+
+# 4. level flags are mutually exclusive
+run upgrade --patch --minor >/dev/null 2>&1 && bad "--patch --minor should fail" || ok
+
+# 5. package filter (intersect with level)
+out="$(run upgrade bar --minor --dry-run 2>/dev/null)"
+{ [ "$(echo "$out" | rows)" = "1" ] && echo "$out" | grep -q '  - bar '; } && ok || bad "upgrade bar --minor -> only bar"
+out="$(run upgrade foo --minor --dry-run 2>/dev/null)"
+[ "$(echo "$out" | rows)" = "0" ] && ok || bad "upgrade foo --minor -> 0 (foo is patch)"
+
+# 6. unknown command fails
+run boguscmd >/dev/null 2>&1 && bad "unknown command should fail" || ok
+
+# 7. invalid --level value fails
+run upgrade --level=bogus >/dev/null 2>&1 && bad "invalid level should fail" || ok
+
+# 8. execution branch (non-dry-run) upgrades the candidate
+out="$(run upgrade --patch 2>/dev/null)"; rc=$?
+echo "$out" | grep -q 'upgraded foo' && ok || bad "execution should upgrade foo"
+[ "$rc" -eq 0 ]                       && ok || bad "execution should exit 0"
+
+echo "Passed: $pass, Failed: $fail"
+(( fail == 0 ))

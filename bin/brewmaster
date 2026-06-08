@@ -5,7 +5,8 @@ set -euo pipefail
 BREWMASTER_VERSION="0.1.0"
 
 # Global configuration (overridden by CLI flags below).
-LEVEL="minor"        # patch | minor | major  (exact category; exclusive by default)
+LEVEL="patch"        # patch | minor | major  (exact category; exclusive by default)
+LEVEL_EXPLICIT=false # becomes true once a level flag is given (guards conflicts)
 OR_LOWER=false       # if true: inclusive (e.g. minor => minor+patch; major => all)
 ALLOW_DATE=false     # treat date-style versions (YYYY.MM.DD) as semver-like
 DRY_RUN=false
@@ -15,15 +16,21 @@ VERBOSE=false
 
 usage() {
   cat <<'USAGE'
-Usage: brewmaster [command] [options]
+Usage: brewmaster [upgrade] [packages...] [options]
 
 Commands:
   upgrade                    Selective upgrade by semver bump level (default).
+                             Pass package names to limit the upgrade to those:
+                             e.g. brewmaster upgrade git node --minor
+
+Level (mutually exclusive; default: patch):
+  --patch                    Apply patch bumps only (default).
+  --minor                    Apply minor bumps only.
+  --major                    Apply major bumps only.
+  --level=patch|minor|major  Alias for the level flags (also: --level minor).
 
 Options:
-  --level=patch|minor|major  Bump category to execute (exclusive). Default: minor.
-                             A space form is also accepted: --level minor
-  --or-lower                 Make it inclusive (e.g. minor => minor+patch; major => all).
+  --or-lower                 Make it inclusive (e.g. --minor => minor+patch; --major => all).
   --allow-date               Treat date versions (YYYY.MM.DD / YYYY-MM-DD...) as semver-like. Default: false.
   -n, --dry-run              Show the plan without executing.
   --formulae                 Formulae only (skip casks).
@@ -41,6 +48,12 @@ USAGE
 # logv — print a debug line to stderr when VERBOSE is true.
 logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 
+# set_level — select the bump level, rejecting conflicting level flags.
+set_level() {
+  $LEVEL_EXPLICIT && { echo "Error: level specified more than once." >&2; exit 1; }
+  LEVEL="$1"; LEVEL_EXPLICIT=true
+}
+
 # --- Subcommand (defaults to "upgrade"; reserved for future commands) ---
 COMMAND="upgrade"
 if [[ $# -gt 0 && "$1" != -* ]]; then
@@ -51,10 +64,14 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
 fi
 
 # --- Argument parsing ---
+PACKAGES=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --level=*)       LEVEL="${1#*=}" ;;
-    --level)         shift; LEVEL="${1-}" ;;
+    --patch)         set_level patch ;;
+    --minor)         set_level minor ;;
+    --major)         set_level major ;;
+    --level=*)       set_level "${1#*=}" ;;
+    --level)         shift; set_level "${1-}" ;;
     --or-lower)      OR_LOWER=true ;;
     --allow-date)    ALLOW_DATE=true ;;
     -n|--dry-run)    DRY_RUN=true ;;
@@ -63,7 +80,8 @@ while [[ $# -gt 0 ]]; do
     -v|--verbose)    VERBOSE=true ;;
     -V|--version)    echo "brewmaster ${BREWMASTER_VERSION}"; exit 0 ;;
     -h|--help)       usage; exit 0 ;;
-    *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
+    -*) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
+    *)  PACKAGES+=("$1") ;;   # positional = package name to target
   esac
   shift
 done

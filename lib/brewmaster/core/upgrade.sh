@@ -8,6 +8,15 @@
 # Globals: CASK_SET (space-padded list of cask names; built by run_upgrade)
 is_cask() { [[ "$CASK_SET" == *" $1 "* ]]; }
 
+# _in_list — return 0 if $1 equals any of the remaining arguments.
+# Args: $1 needle; $2.. haystack items
+_in_list() {
+  local needle="$1"; shift
+  local x
+  for x in "$@"; do [[ "$x" == "$needle" ]] && return 0; done
+  return 1
+}
+
 # run_upgrade — main flow: read `brew outdated`, classify each package by semver
 # bump, gate by level, then print the plan (DRY_RUN) or execute `brew upgrade`.
 # Globals (read): LEVEL OR_LOWER ALLOW_DATE ONLY_FORMULAE ONLY_CASKS DRY_RUN VERBOSE
@@ -28,6 +37,10 @@ run_upgrade() {
           logv "Skip (unparseable): $ln"; continue
         fi
         IFS='|' read -r name old_raw new_raw <<<"$parsed"
+
+        if ((${#PACKAGES[@]})) && ! _in_list "$name" "${PACKAGES[@]}"; then
+          logv "Skip (not in package filter): $name"; continue
+        fi
 
         if $ONLY_FORMULAE && is_cask "$name"; then
           logv "Skip cask (formulae only): $name"; continue
