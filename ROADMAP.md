@@ -65,7 +65,7 @@ brewmaster/
 
 ## Milestone 0 — Refactor & Foundation
 
-**Status:** `[ ] todo`
+**Status:** `[x] done`
 **Branch:** `refactor/foundation`
 
 ### Scope
