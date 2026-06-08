@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+[ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
+set -euo pipefail
+
+# Global configuration (overridden by CLI flags below).
+LEVEL="minor"        # patch | minor | major  (exact category; exclusive by default)
+OR_LOWER=false       # if true: inclusive (e.g. minor => minor+patch; major => all)
+ALLOW_DATE=false     # treat date-style versions (YYYY.MM.DD) as semver-like
+DRY_RUN=false
+ONLY_FORMULAE=false
+ONLY_CASKS=false
+VERBOSE=false
+
+usage() {
+  cat <<'USAGE'
+Usage: brewmaster [options]
+
+Options:
+  --level=patch|minor|major  Bump category to execute (exclusive). Default: minor.
+  --or-lower                 Make it inclusive (e.g. minor => minor+patch; major => all).
+  --allow-date               Treat date versions (YYYY.MM.DD / YYYY-MM-DD...) as semver-like. Default: false.
+  -n, --dry-run              Show the plan without executing.
+  --formulae                 Formulae only (skip casks).
+  --casks                    Casks only (skip formulae).
+  -v, --verbose              More detailed output.
+  -h, --help                 Show this help.
+
+Notes:
+- Pre-release (-rc.1) and +build metadata are ignored during comparison (only M.m.p).
+- Date/timestamp versions are skipped unless --allow-date is used.
+USAGE
+}
+
+# logv — print a debug line to stderr when VERBOSE is true.
+logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
+
+# --- Argument parsing ---
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --level=patch|--level=minor|--level=major) LEVEL="${1#*=}" ;;
+    --or-lower)      OR_LOWER=true ;;
+    --allow-date)    ALLOW_DATE=true ;;
+    -n|--dry-run)    DRY_RUN=true ;;
+    --formulae)      ONLY_FORMULAE=true ;;
+    --casks)         ONLY_CASKS=true ;;
+    -v|--verbose)    VERBOSE=true ;;
+    -h|--help)       usage; exit 0 ;;
+    *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
+  esac
+  shift
+done
+
+if $ONLY_FORMULAE && $ONLY_CASKS; then
+  echo "Error: --formulae and --casks are mutually exclusive." >&2
+  exit 1
+fi
+
+# --- Locate and source library modules (symlink-safe for Homebrew layout) ---
+src="${BASH_SOURCE[0]}"
+while [ -h "$src" ]; do
+  dir="$(cd -P "$(dirname "$src")" && pwd)"
+  src="$(readlink "$src")"
+  [[ $src != /* ]] && src="$dir/$src"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$src")" && pwd)"
+LIB_DIR="${BREWMASTER_LIB:-$SCRIPT_DIR/../lib/brewmaster}"
+
+source "$LIB_DIR/core/semver.sh"
+source "$LIB_DIR/core/outdated.sh"
+source "$LIB_DIR/core/upgrade.sh"
+
+run_upgrade
