@@ -9,6 +9,14 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added (M2)
+
+- `--check-deps`: risk-score each upgrade candidate using `brew uses`; skip HIGH-risk (score ≥ threshold), warn + prompt on MEDIUM (score 4–6)
+- `--risk-threshold=N` (default 7): configurable HIGH-risk cutoff
+- `--yes` / `-y`: auto-confirm MEDIUM-risk packages without prompting
+- `brewmaster deps show [package]`: show dependency risk report for one package; without arg, lists all outdated packages sorted by risk score (highest first)
+- `tests/test_depgraph.sh` — 18 depgraph function and upgrade-flow tests
+
 ### Added (M1)
 
 - `snapshot save [--label=TEXT]` — save current Homebrew state (`brew list --versions`) to a timestamped file

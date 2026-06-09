@@ -23,6 +23,7 @@ _in_list() {
 # Uses:           parse_outdated_line, to_semver_3, bump_kind, allow_by_level, logv
 # Return:         0 on success; 1 if any upgrade failed.
 run_upgrade() {
+  $CHECK_DEPS && depgraph_build
   CASK_SET=" $(brew list --cask 2>/dev/null | tr '\n' ' ') "
 
   local out; out="$(brew outdated --verbose 2>/dev/null || true)"
@@ -59,6 +60,21 @@ run_upgrade() {
 
         kind="$(bump_kind "$old_sv" "$new_sv")"
         if allow_by_level "$kind" "$LEVEL" "$OR_LOWER"; then
+          if $CHECK_DEPS; then
+            local score; score="$(depgraph_risk_score "$name" "$kind")"
+            if (( score >= RISK_THRESHOLD )); then
+              echo "Warning: skipping $name (risk ${score}/10 — HIGH)" >&2
+              logv "Dependents: $(depgraph_is_safe "$name" || true)"
+              continue
+            elif (( score >= 4 )); then
+              echo "Warning: $name risk ${score}/10 (MEDIUM)" >&2
+              if ! $YES_FLAG; then
+                printf "Upgrade %s anyway? [y/N] " "$name" >&2
+                local ans; read -r ans </dev/tty
+                [[ "$ans" =~ ^[Yy]$ ]] || continue
+              fi
+            fi
+          fi
           upgrade_list+=("$name")
           report_rows+=("$name  ${old_sv}  ->  ${new_sv}  [${kind}]")
         else

@@ -15,11 +15,16 @@ ONLY_CASKS=false
 VERBOSE=false
 SNAP_LABEL=""
 SNAP_FORCE=false
+CHECK_DEPS=false
+RISK_THRESHOLD=7
+YES_FLAG=false
+DEPS_SUBCMD=""
 
 usage() {
   cat <<'USAGE'
 Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster snapshot <save|list|diff|restore|delete> [ref] [options]
+       brewmaster deps show [package]
 
 Commands:
   upgrade                    Selective upgrade by semver bump level (default).
@@ -30,6 +35,8 @@ Commands:
   snapshot diff [INDEX|PATH] Show packages changed since a snapshot.
   snapshot restore [INDEX|PATH]  Restore packages to a snapshot state.
   snapshot delete [INDEX|PATH]   Delete a snapshot.
+  deps show [package]        Show dependency risk for one package, or list all
+                             outdated packages sorted by risk score.
 
 Level (mutually exclusive; default: patch):
   --patch                    Apply patch bumps only (default).
@@ -43,6 +50,9 @@ Options (upgrade):
   -n, --dry-run              Show the plan without executing.
   --formulae                 Formulae only (skip casks).
   --casks                    Casks only (skip formulae).
+  --check-deps               Risk-score each candidate; skip HIGH-risk, warn on MEDIUM.
+  --risk-threshold=N         HIGH-risk cutoff (default: 7; range 0-10).
+  --yes, -y                  Auto-confirm MEDIUM-risk packages (no prompt).
 
 Options (snapshot):
   --label=TEXT               Label for 'snapshot save'.
@@ -58,6 +68,7 @@ Notes:
 - Pre-release (-rc.1) and +build metadata are ignored during comparison (only M.m.p).
 - Date/timestamp versions are skipped unless --allow-date is used.
 - Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
+- Risk score 0-10: HIGH >= threshold (default 7), MEDIUM 4-6, LOW 0-3.
 USAGE
 }
 
@@ -80,6 +91,10 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
               if [[ $# -gt 0 && "$1" != -* ]]; then
                 SNAPSHOT_SUBCMD="$1"; shift
               fi ;;
+    deps)     COMMAND="$1"; shift
+              if [[ $# -gt 0 && "$1" != -* ]]; then
+                DEPS_SUBCMD="$1"; shift
+              fi ;;
     *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
   esac
 fi
@@ -100,8 +115,12 @@ while [[ $# -gt 0 ]]; do
     --casks)         ONLY_CASKS=true ;;
     --label=*)       SNAP_LABEL="${1#*=}" ;;
     --label)         shift; SNAP_LABEL="${1-}" ;;
-    --force)         SNAP_FORCE=true ;;
-    -v|--verbose)    VERBOSE=true ;;
+    --force)             SNAP_FORCE=true ;;
+    --check-deps)        CHECK_DEPS=true ;;
+    --risk-threshold=*)  RISK_THRESHOLD="${1#*=}" ;;
+    --risk-threshold)    shift; RISK_THRESHOLD="${1-}" ;;
+    --yes|-y)            YES_FLAG=true ;;
+    -v|--verbose)        VERBOSE=true ;;
     -V|--version)    echo "brewmaster ${BREWMASTER_VERSION}"; exit 0 ;;
     -h|--help)       usage; exit 0 ;;
     -*) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
@@ -134,6 +153,7 @@ source "$LIB_DIR/core/semver.sh"
 source "$LIB_DIR/core/outdated.sh"
 source "$LIB_DIR/core/upgrade.sh"
 source "$LIB_DIR/snapshot.sh"
+source "$LIB_DIR/depgraph.sh"
 
 case "$COMMAND" in
   upgrade) run_upgrade ;;
@@ -146,5 +166,17 @@ case "$COMMAND" in
       delete)  snapshot_delete "${PACKAGES[0]:-}" ;;
       "")      echo "Usage: brewmaster snapshot <save|list|diff|restore|delete>" >&2; exit 1 ;;
       *)       echo "Unknown snapshot subcommand: $SNAPSHOT_SUBCMD" >&2; exit 1 ;;
+    esac ;;
+  deps)
+    case "$DEPS_SUBCMD" in
+      show)
+        depgraph_build
+        if [[ -n "${PACKAGES[0]:-}" ]]; then
+          depgraph_report "${PACKAGES[0]}"
+        else
+          depgraph_list_risky
+        fi ;;
+      "") echo "Usage: brewmaster deps <show> [package]" >&2; exit 1 ;;
+      *)  echo "Unknown deps subcommand: $DEPS_SUBCMD" >&2; exit 1 ;;
     esac ;;
 esac

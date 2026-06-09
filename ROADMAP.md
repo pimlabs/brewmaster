@@ -186,7 +186,7 @@ brewmaster snapshot diff 1
 
 ## Milestone 2 — Dependency Graph Awareness
 
-**Status:** `[ ] todo`
+**Status:** `[x] done`
 **Branch:** `feat/depgraph`
 **Depends on:** Milestone 0
 
