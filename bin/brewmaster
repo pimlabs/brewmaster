@@ -2,7 +2,7 @@
 [ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
 set -euo pipefail
 
-BREWMASTER_VERSION="0.1.0"
+BREWMASTER_VERSION="0.3.0"
 
 # Global configuration (overridden by CLI flags below).
 LEVEL="patch"        # patch | minor | major  (exact category; exclusive by default)
