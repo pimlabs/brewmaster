@@ -13,15 +13,23 @@ DRY_RUN=false
 ONLY_FORMULAE=false
 ONLY_CASKS=false
 VERBOSE=false
+SNAP_LABEL=""
+SNAP_FORCE=false
 
 usage() {
   cat <<'USAGE'
 Usage: brewmaster [upgrade] [packages...] [options]
+       brewmaster snapshot <save|list|diff|restore|delete> [ref] [options]
 
 Commands:
   upgrade                    Selective upgrade by semver bump level (default).
                              Pass package names to limit the upgrade to those:
                              e.g. brewmaster upgrade git node --minor
+  snapshot save              Save current Homebrew state to a snapshot.
+  snapshot list              List all snapshots.
+  snapshot diff [INDEX|PATH] Show packages changed since a snapshot.
+  snapshot restore [INDEX|PATH]  Restore packages to a snapshot state.
+  snapshot delete [INDEX|PATH]   Delete a snapshot.
 
 Level (mutually exclusive; default: patch):
   --patch                    Apply patch bumps only (default).
@@ -29,12 +37,19 @@ Level (mutually exclusive; default: patch):
   --major                    Apply major bumps only.
   --level=patch|minor|major  Alias for the level flags (also: --level minor).
 
-Options:
+Options (upgrade):
   --or-lower                 Make it inclusive (e.g. --minor => minor+patch; --major => all).
   --allow-date               Treat date versions (YYYY.MM.DD / YYYY-MM-DD...) as semver-like. Default: false.
   -n, --dry-run              Show the plan without executing.
   --formulae                 Formulae only (skip casks).
   --casks                    Casks only (skip formulae).
+
+Options (snapshot):
+  --label=TEXT               Label for 'snapshot save'.
+  --force                    Skip confirmation for 'snapshot delete'.
+  -n, --dry-run              Show plan without executing for 'snapshot restore'.
+
+Options (general):
   -v, --verbose              More detailed output.
   -V, --version              Print version and exit.
   -h, --help                 Show this help.
@@ -42,6 +57,7 @@ Options:
 Notes:
 - Pre-release (-rc.1) and +build metadata are ignored during comparison (only M.m.p).
 - Date/timestamp versions are skipped unless --allow-date is used.
+- Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 USAGE
 }
 
@@ -54,11 +70,16 @@ set_level() {
   LEVEL="$1"; LEVEL_EXPLICIT=true
 }
 
-# --- Subcommand (defaults to "upgrade"; reserved for future commands) ---
+# --- Subcommand (defaults to "upgrade") ---
 COMMAND="upgrade"
+SNAPSHOT_SUBCMD=""
 if [[ $# -gt 0 && "$1" != -* ]]; then
   case "$1" in
-    upgrade) COMMAND="$1"; shift ;;
+    upgrade)  COMMAND="$1"; shift ;;
+    snapshot) COMMAND="$1"; shift
+              if [[ $# -gt 0 && "$1" != -* ]]; then
+                SNAPSHOT_SUBCMD="$1"; shift
+              fi ;;
     *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
   esac
 fi
@@ -77,6 +98,9 @@ while [[ $# -gt 0 ]]; do
     -n|--dry-run)    DRY_RUN=true ;;
     --formulae)      ONLY_FORMULAE=true ;;
     --casks)         ONLY_CASKS=true ;;
+    --label=*)       SNAP_LABEL="${1#*=}" ;;
+    --label)         shift; SNAP_LABEL="${1-}" ;;
+    --force)         SNAP_FORCE=true ;;
     -v|--verbose)    VERBOSE=true ;;
     -V|--version)    echo "brewmaster ${BREWMASTER_VERSION}"; exit 0 ;;
     -h|--help)       usage; exit 0 ;;
@@ -109,7 +133,18 @@ LIB_DIR="${BREWMASTER_LIB:-$SCRIPT_DIR/../lib/brewmaster}"
 source "$LIB_DIR/core/semver.sh"
 source "$LIB_DIR/core/outdated.sh"
 source "$LIB_DIR/core/upgrade.sh"
+source "$LIB_DIR/snapshot.sh"
 
 case "$COMMAND" in
   upgrade) run_upgrade ;;
+  snapshot)
+    case "$SNAPSHOT_SUBCMD" in
+      save)    snapshot_save "${SNAP_LABEL:-}" ;;
+      list)    snapshot_list ;;
+      diff)    snapshot_diff "${PACKAGES[0]:-}" ;;
+      restore) snapshot_restore "${PACKAGES[0]:-}" ;;
+      delete)  snapshot_delete "${PACKAGES[0]:-}" ;;
+      "")      echo "Usage: brewmaster snapshot <save|list|diff|restore|delete>" >&2; exit 1 ;;
+      *)       echo "Unknown snapshot subcommand: $SNAPSHOT_SUBCMD" >&2; exit 1 ;;
+    esac ;;
 esac

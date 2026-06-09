@@ -107,7 +107,7 @@ parse_outdated_line "$line"                       # stdout: "name|old|new" | ret
 
 ## Milestone 1 — Snapshot & Rollback
 
-**Status:** `[ ] todo`
+**Status:** `[x] done`
 **Branch:** `feat/snapshot`
 **Depends on:** Milestone 0
 

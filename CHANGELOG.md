@@ -9,7 +9,18 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added (M1)
+
+- `snapshot save [--label=TEXT]` — save current Homebrew state (`brew list --versions`) to a timestamped file
+- `snapshot list` — show all saved snapshots with index, timestamp, label, and package count
+- `snapshot diff [INDEX|PATH]` — show packages that changed (UPGRADE / DOWNGRADE / NEW / REMOVED) since a snapshot
+- `snapshot restore [INDEX|PATH] [--dry-run]` — reinstall packages from a snapshot; respects `--dry-run`
+- `snapshot delete [INDEX|PATH] [--force]` — delete a snapshot file pair, with interactive confirmation unless `--force`
+- Snapshots stored in `${XDG_DATA_HOME:-~/.local/share}/brewmaster/snapshots/` as `.txt` + `.meta.json` pairs
+- `tests/test_snapshot.sh` — 19 snapshot function tests using a mock brew
+
 ### Added
+
 - Initial project structure
 - Core semver logic: `to_semver_3`, `bump_kind`, `allow_by_level`
 - Outdated package parser: `parse_outdated_line`
@@ -17,6 +28,7 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Unit tests for the semver core (`tests/test_semver.sh`)
 
 ### Changed
+
 - Split the monolithic `brew-upgrade.sh` into `bin/brewmaster` plus `lib/brewmaster/core/{semver,outdated,upgrade}.sh`
 - Standardized all user-facing text and comments to English
 - `--allow-date` is now opt-in (default off); date versions are skipped unless requested
