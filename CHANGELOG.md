@@ -7,6 +7,21 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.4.0] — 2026-06-10
+
+### Added (M3)
+
+- `--profile=NAME`: filter packages and override the bump level from a named profile
+- `--interactive` / `-i`: fzf multi-select among upgrade candidates (requires `fzf`; exits with an install hint if missing)
+- `brewmaster profile list` — show all configured profiles with descriptions
+- `brewmaster profile create` — interactive wizard to add a new profile
+- `brewmaster profile edit [name]` — open `profiles.toml` in `$EDITOR`
+- `brewmaster profile diff <a> <b>` — compare include lists between two profiles
+- `brewmaster profile validate` — check `profiles.toml` for duplicate sections and invalid values
+- TOML config at `~/.config/brewmaster/profiles.toml` (`XDG_CONFIG_HOME` respected); example at `config/profiles.toml.example`
+- Profile fields: `include`, `exclude`, `level`, `max_risk_score`, `require_confirm`
+- `tests/test_profile.sh` — 45 profile function and upgrade-flow assertions
+
 ## [0.3.0] — 2026-06-09
 
 ### Added (M2)

@@ -1,0 +1,33 @@
+# brewmaster profile configuration
+# Copy to: ~/.config/brewmaster/profiles.toml (XDG_CONFIG_HOME respected)
+#
+# Each [profiles.NAME] section supports:
+#   description     - shown by `brewmaster profile list`
+#   include          - array of package names; empty = all packages allowed
+#   exclude          - array of package names to always skip
+#   level            - "patch" | "minor" | "major"; overrides --level when set
+#   max_risk_score   - additional cap (0-10) on top of --risk-threshold (requires --check-deps)
+#   require_confirm  - if true, always prompt before upgrading (unless --yes)
+
+[profiles.work]
+description = "Core dev tools"
+include = ["node", "python@3.12", "git", "gh", "jq", "ripgrep"]
+
+[profiles.safe]
+description = "Low-risk upgrades only"
+include = []
+exclude = ["openssl", "curl"]
+max_risk_score = 3
+level = "patch"
+
+[profiles.personal]
+description = "Everything allowed, minor and below"
+include = []
+level = "minor"
+
+[profiles.demo]
+description = "Freeze before a client demo"
+include = []
+exclude = []
+require_confirm = true
+level = "patch"
