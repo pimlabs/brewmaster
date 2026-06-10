@@ -2,7 +2,7 @@
 [ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
 set -euo pipefail
 
-BREWMASTER_VERSION="0.3.0"
+BREWMASTER_VERSION="0.4.0"
 
 # Global configuration (overridden by CLI flags below).
 LEVEL="patch"        # patch | minor | major  (exact category; exclusive by default)
@@ -19,12 +19,21 @@ CHECK_DEPS=false
 RISK_THRESHOLD=7
 YES_FLAG=false
 DEPS_SUBCMD=""
+PROFILE_NAME=""
+INTERACTIVE=false
+PROFILE_SUBCMD=""
+PROFILE_INCLUDE=()
+PROFILE_EXCLUDE=()
+PROFILE_REQUIRE_CONFIRM=false
+PROFILE_MAX_RISK=10
+PROFILE_LEVEL=""
 
 usage() {
   cat <<'USAGE'
 Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster snapshot <save|list|diff|restore|delete> [ref] [options]
        brewmaster deps show [package]
+       brewmaster profile <list|create|edit|diff|validate> [args]
 
 Commands:
   upgrade                    Selective upgrade by semver bump level (default).
@@ -37,6 +46,11 @@ Commands:
   snapshot delete [INDEX|PATH]   Delete a snapshot.
   deps show [package]        Show dependency risk for one package, or list all
                              outdated packages sorted by risk score.
+  profile list               List configured profiles.
+  profile create             Interactive wizard to add a new profile.
+  profile edit [name]        Open profiles.toml in $EDITOR.
+  profile diff <a> <b>       Compare include lists between two profiles.
+  profile validate           Check profiles.toml for errors.
 
 Level (mutually exclusive; default: patch):
   --patch                    Apply patch bumps only (default).
@@ -53,6 +67,8 @@ Options (upgrade):
   --check-deps               Risk-score each candidate; skip HIGH-risk, warn on MEDIUM.
   --risk-threshold=N         HIGH-risk cutoff (default: 7; range 0-10).
   --yes, -y                  Auto-confirm MEDIUM-risk packages (no prompt).
+  --profile=NAME             Filter/level from a named profile in profiles.toml.
+  --interactive, -i          fzf multi-select among upgrade candidates (requires fzf).
 
 Options (snapshot):
   --label=TEXT               Label for 'snapshot save'.
@@ -69,6 +85,7 @@ Notes:
 - Date/timestamp versions are skipped unless --allow-date is used.
 - Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 - Risk score 0-10: HIGH >= threshold (default 7), MEDIUM 4-6, LOW 0-3.
+- Profiles read from: ~/.config/brewmaster/profiles.toml (XDG_CONFIG_HOME respected).
 USAGE
 }
 
@@ -95,6 +112,10 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
               if [[ $# -gt 0 && "$1" != -* ]]; then
                 DEPS_SUBCMD="$1"; shift
               fi ;;
+    profile)  COMMAND="$1"; shift
+              if [[ $# -gt 0 && "$1" != -* ]]; then
+                PROFILE_SUBCMD="$1"; shift
+              fi ;;
     *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
   esac
 fi
@@ -120,6 +141,9 @@ while [[ $# -gt 0 ]]; do
     --risk-threshold=*)  RISK_THRESHOLD="${1#*=}" ;;
     --risk-threshold)    shift; RISK_THRESHOLD="${1-}" ;;
     --yes|-y)            YES_FLAG=true ;;
+    --profile=*)         PROFILE_NAME="${1#*=}" ;;
+    --profile)           shift; PROFILE_NAME="${1-}" ;;
+    --interactive|-i)    INTERACTIVE=true ;;
     -v|--verbose)        VERBOSE=true ;;
     -V|--version)    echo "brewmaster ${BREWMASTER_VERSION}"; exit 0 ;;
     -h|--help)       usage; exit 0 ;;
@@ -154,6 +178,12 @@ source "$LIB_DIR/core/outdated.sh"
 source "$LIB_DIR/core/upgrade.sh"
 source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"
+source "$LIB_DIR/profile.sh"
+
+if [[ -n "$PROFILE_NAME" ]]; then
+  profile_load "$PROFILE_NAME" || exit 1
+  [[ -n "$PROFILE_LEVEL" ]] && ! $LEVEL_EXPLICIT && LEVEL="$PROFILE_LEVEL"
+fi
 
 case "$COMMAND" in
   upgrade) run_upgrade ;;
@@ -178,5 +208,15 @@ case "$COMMAND" in
         fi ;;
       "") echo "Usage: brewmaster deps <show> [package]" >&2; exit 1 ;;
       *)  echo "Unknown deps subcommand: $DEPS_SUBCMD" >&2; exit 1 ;;
+    esac ;;
+  profile)
+    case "$PROFILE_SUBCMD" in
+      list)     profile_list ;;
+      create)   profile_create ;;
+      edit)     profile_edit "${PACKAGES[0]:-}" ;;
+      diff)     profile_diff "${PACKAGES[0]:-}" "${PACKAGES[1]:-}" ;;
+      validate) profile_validate ;;
+      "")       echo "Usage: brewmaster profile <list|create|edit|diff|validate>" >&2; exit 1 ;;
+      *)        echo "Unknown profile subcommand: $PROFILE_SUBCMD" >&2; exit 1 ;;
     esac ;;
 esac

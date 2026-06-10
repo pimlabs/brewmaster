@@ -20,6 +20,7 @@ _in_list() {
 # run_upgrade — main flow: read `brew outdated`, classify each package by semver
 # bump, gate by level, then print the plan (DRY_RUN) or execute `brew upgrade`.
 # Globals (read): LEVEL OR_LOWER ALLOW_DATE ONLY_FORMULAE ONLY_CASKS DRY_RUN VERBOSE
+#                 INTERACTIVE PROFILE_NAME PROFILE_MAX_RISK PROFILE_REQUIRE_CONFIRM
 # Uses:           parse_outdated_line, to_semver_3, bump_kind, allow_by_level, logv
 # Return:         0 on success; 1 if any upgrade failed.
 run_upgrade() {
@@ -60,11 +61,17 @@ run_upgrade() {
 
         kind="$(bump_kind "$old_sv" "$new_sv")"
         if allow_by_level "$kind" "$LEVEL" "$OR_LOWER"; then
+          if [[ -n "${PROFILE_NAME:-}" ]]; then
+            profile_filter_package "$name" || { logv "Skip (profile filter): $name"; continue; }
+          fi
           if $CHECK_DEPS; then
             local score; score="$(depgraph_risk_score "$name" "$kind")"
             if (( score >= RISK_THRESHOLD )); then
               echo "Warning: skipping $name (risk ${score}/10 — HIGH)" >&2
               logv "Dependents: $(depgraph_is_safe "$name" || true)"
+              continue
+            elif [[ -n "${PROFILE_NAME:-}" ]] && (( PROFILE_MAX_RISK < 10 )) && (( score > PROFILE_MAX_RISK )); then
+              echo "Warning: skipping $name (risk ${score}/10 > profile max ${PROFILE_MAX_RISK})" >&2
               continue
             elif (( score >= 4 )); then
               echo "Warning: $name risk ${score}/10 (MEDIUM)" >&2
@@ -74,6 +81,11 @@ run_upgrade() {
                 [[ "$ans" =~ ^[Yy]$ ]] || continue
               fi
             fi
+          fi
+          if ${PROFILE_REQUIRE_CONFIRM:-false} && ! $YES_FLAG; then
+            printf "Profile requires confirmation for %s. Upgrade? [y/N] " "$name" >&2
+            local ans; read -r ans </dev/tty
+            [[ "$ans" =~ ^[Yy]$ ]] || continue
           fi
           upgrade_list+=("$name")
           report_rows+=("$name  ${old_sv}  ->  ${new_sv}  [${kind}]")
@@ -87,6 +99,36 @@ run_upgrade() {
 
   if (( skipped_nonsemver > 0 )); then
     echo "Note: ${skipped_nonsemver} package(s) skipped (non-semver version)." >&2
+  fi
+
+  if $INTERACTIVE && ((${#upgrade_list[@]} > 0)); then
+    if ! command -v fzf >/dev/null 2>&1; then
+      echo "Error: --interactive requires fzf. Install with: brew install fzf" >&2
+      exit 1
+    fi
+    local -a fzf_display=()
+    local i
+    for i in "${!upgrade_list[@]}"; do
+      fzf_display+=("${upgrade_list[$i]}"$'\t'"${report_rows[$i]}")
+    done
+    local selected
+    selected="$(printf '%s\n' "${fzf_display[@]}" | \
+      fzf --multi --ansi \
+          --header='tab: toggle · ctrl-a: all · enter: upgrade' \
+          --prompt='Select packages > ' | \
+      cut -f1)"
+    local -a new_list=() new_rows=()
+    for i in "${!upgrade_list[@]}"; do
+      echo "$selected" | grep -qFx "${upgrade_list[$i]}" || continue
+      new_list+=("${upgrade_list[$i]}")
+      new_rows+=("${report_rows[$i]}")
+    done
+    upgrade_list=("${new_list[@]:-}")
+    report_rows=("${new_rows[@]:-}")
+    if [[ "${upgrade_list[0]:-}" == "" ]]; then
+      upgrade_list=()
+      report_rows=()
+    fi
   fi
 
   if $DRY_RUN; then

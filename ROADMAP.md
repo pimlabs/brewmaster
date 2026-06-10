@@ -273,7 +273,7 @@ brewmaster --check-deps --dry-run        # high-risk packages excluded from list
 
 ## Milestone 3 — Profile System
 
-**Status:** `[ ] todo`
+**Status:** `[x] done`
 **Branch:** `feat/profiles`
 **Version:** `v0.4.0`
 **Depends on:** M0, M2 (for risk_threshold per profile)
