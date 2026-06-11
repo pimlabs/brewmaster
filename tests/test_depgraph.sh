@@ -8,20 +8,35 @@ LIB="$DIR/../lib/brewmaster"
 # --- Mock brew (uses "$*" so all args match regardless of count) ---
 MOCK_BIN="$(mktemp -d)"
 BREW_CALL_LOG="$(mktemp)"
-trap 'rm -rf "$MOCK_BIN" "$BREW_CALL_LOG"' EXIT
+INFO_JSON_FILE="$(mktemp)"
+trap 'rm -rf "$MOCK_BIN" "$BREW_CALL_LOG" "$INFO_JSON_FILE"' EXIT
+
+# `brew info --json=v2 --installed` fixture — reverse-dependency relationships:
+#   openssl <- curl, cmake (runtime; same set for build -> no "+2 build extra")
+#   node    <- yarn, pnpm, eslint, prettier (runtime); + make (build-only -> "+2 build extra")
+#   git     <- (none)
+cat > "$INFO_JSON_FILE" <<'JSONEOF'
+{
+  "formulae": [
+    {"name":"git","dependencies":[],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[]}]},
+    {"name":"openssl","dependencies":[],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[]}]},
+    {"name":"curl","dependencies":["openssl"],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[{"full_name":"openssl"}]}]},
+    {"name":"cmake","dependencies":["openssl"],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[{"full_name":"openssl"}]}]},
+    {"name":"node","dependencies":[],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[]}]},
+    {"name":"yarn","dependencies":["node"],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[{"full_name":"node"}]}]},
+    {"name":"pnpm","dependencies":["node"],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[{"full_name":"node"}]}]},
+    {"name":"eslint","dependencies":["node"],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[{"full_name":"node"}]}]},
+    {"name":"prettier","dependencies":["node"],"build_dependencies":[],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[{"full_name":"node"}]}]},
+    {"name":"make","dependencies":[],"build_dependencies":["node"],"optional_dependencies":[],"recommended_dependencies":[],"installed":[{"runtime_dependencies":[]}]}
+  ]
+}
+JSONEOF
 
 cat > "$MOCK_BIN/brew" <<'BREWEOF'
 #!/usr/bin/env bash
 echo "$*" >> "${BREW_CALL_LOG_PATH:-/dev/null}"
 case "$*" in
-  # runtime deps
-  "uses --installed openssl")            echo "curl"; echo "cmake" ;;
-  "uses --installed git")                ;;
-  "uses --installed node")               echo "yarn"; echo "pnpm"; echo "eslint"; echo "prettier" ;;
-  # build deps — openssl: same count (no extra), node: +1 extra (triggers +2)
-  "uses --include-build --installed openssl") echo "curl"; echo "cmake" ;;
-  "uses --include-build --installed git")     ;;
-  "uses --include-build --installed node")    echo "yarn"; echo "pnpm"; echo "eslint"; echo "prettier"; echo "make" ;;
+  "info --json=v2 --installed")  cat "$INFO_JSON_FILE" ;;
   # outdated list
   "outdated --verbose")
     printf 'git (2.40.0) < 2.44.0\n'
@@ -34,6 +49,7 @@ BREWEOF
 chmod +x "$MOCK_BIN/brew"
 export PATH="$MOCK_BIN:$PATH"
 export BREW_CALL_LOG_PATH="$BREW_CALL_LOG"
+export INFO_JSON_FILE
 
 # --- Globals ---
 DRY_RUN=false
@@ -58,7 +74,8 @@ bad() { fail=$((fail+1)); echo "FAIL: $1" >&2; }
 # --- 1. depgraph_build creates cache file ---
 depgraph_build
 [ -f "$DEPGRAPH_CACHE" ]                    && ok || bad "build: cache file created"
-[ "$(cat "$DEPGRAPH_CACHE")" = "{}" ]       && ok || bad "build: cache initialized to {}"
+jq -e 'has("runtime") and has("build")' "$DEPGRAPH_CACHE" >/dev/null \
+                                             && ok || bad "build: cache has runtime/build maps"
 
 # --- 2. depgraph_is_safe "git" → empty array [], return 0 ---
 arr="$(depgraph_is_safe "git")"
@@ -122,8 +139,6 @@ case "$*" in
   "list --cask")                              ;;
   "outdated --verbose")                       printf 'node (20.0.0) < 21.0.0\n' ;;
   "upgrade node")                             echo "upgraded node" ;;
-  "uses --installed node")                    echo "yarn"; echo "pnpm"; echo "eslint"; echo "prettier" ;;
-  "uses --include-build --installed node")    echo "yarn"; echo "pnpm"; echo "eslint"; echo "prettier"; echo "make" ;;
   "--version")                                echo "Homebrew 4.2.0" ;;
 esac
 BREW2EOF
@@ -143,7 +158,7 @@ PACKAGES=()
 CASK_SET=""
 
 DEPGRAPH_CACHE="$(mktemp)"
-echo '{}' > "$DEPGRAPH_CACHE"
+echo '{"runtime":{"node":["yarn","pnpm","eslint","prettier"]},"build":{"node":["yarn","pnpm","eslint","prettier","make"]}}' > "$DEPGRAPH_CACHE"
 
 upgrade_out="$(run_upgrade 2>&1)"
 # node risk score 10 >= RISK_THRESHOLD(7) → skipped with "Warning"
