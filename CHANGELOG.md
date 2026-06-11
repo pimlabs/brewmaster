@@ -7,6 +7,19 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.6.1] — 2026-06-11
+
+### Changed
+
+- Restructured `--help` output: each command is now grouped with the flags
+  that apply to it (UPGRADE, DEPENDENCY RISK, SNAPSHOT & ROLLBACK, PROFILES,
+  CLEANUP & INTENT, AUDIT LOG & REPORTS, GENERAL), instead of separate
+  Commands/Options sections
+- Clarified in `--help` notes: `--level=X` vs `--patch/--minor/--major` are
+  equivalent, `--force` means different things per command, and risk score
+  vs cleanup score are opposite-direction 0-10 scales
+- Added a "Commands at a Glance" index table to README.md
+
 ## [0.6.0] — 2026-06-11
 
 ### Added (M5)
