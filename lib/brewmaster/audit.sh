@@ -156,8 +156,10 @@ audit_report() {
     fi
   fi
 
-  local snap_files=() snap_count=0 snap_oldest="" snap_latest=""
-  mapfile -t snap_files < <(_snap_list_files)
+  local snap_files=() snap_count=0 snap_oldest="" snap_latest="" line
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && snap_files+=("$line")
+  done < <(_snap_list_files)
   snap_count="${#snap_files[@]}"
   if (( snap_count > 0 )); then
     local latest_base oldest_base

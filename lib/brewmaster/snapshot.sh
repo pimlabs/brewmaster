@@ -83,8 +83,10 @@ snapshot_save() {
 # snapshot_list — print a table of all saved snapshots, newest first.
 # Stdout: formatted table: INDEX | TIMESTAMP | LABEL | PACKAGES
 snapshot_list() {
-  local files
-  mapfile -t files < <(_snap_list_files)
+  local files=() line
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && files+=("$line")
+  done < <(_snap_list_files)
 
   if (( ${#files[@]} == 0 )); then
     echo "No snapshots found in $SNAP_DIR"
