@@ -533,7 +533,7 @@ brewmaster cleanup --interactive
 
 ## Milestone 5 — Audit Log & Report
 
-**Status:** `[ ] todo`
+**Status:** `[x] done`
 **Branch:** `feat/audit`
 **Version:** `v0.6.0`
 **Depends on:** M0, M1, M4

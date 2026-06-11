@@ -75,6 +75,8 @@ snapshot_save() {
     '{ label: $label, brew_version: $brew_version, package_count: $package_count }' \
     > "$meta"
 
+  audit_append "snapshot" "$(jq -nc --arg path "$txt" --arg label "${label}" '{path:$path, label:$label}')"
+
   echo "$txt"
 }
 

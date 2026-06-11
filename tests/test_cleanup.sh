@@ -33,10 +33,12 @@ CELLAR_ROOT="$(mktemp -d)"
 INFO_JSON_FILE="$(mktemp)"
 UNINSTALL_LOG="$(mktemp)"
 SNAP_DIR="$(mktemp -d)"
-trap 'rm -rf "$MOCK_BIN" "$CELLAR_ROOT" "$INFO_JSON_FILE" "$UNINSTALL_LOG" "$SNAP_DIR"' EXIT
+AUDIT_DIR="$(mktemp -d)"
+trap 'rm -rf "$MOCK_BIN" "$CELLAR_ROOT" "$INFO_JSON_FILE" "$UNINSTALL_LOG" "$SNAP_DIR" "$AUDIT_DIR"' EXIT
 
 export CELLAR_ROOT INFO_JSON_FILE UNINSTALL_LOG
 export BREWMASTER_SNAP_DIR="$SNAP_DIR"
+export BREWMASTER_AUDIT_LOG="$AUDIT_DIR/audit.log"
 
 mkdir -p "$CELLAR_ROOT/imagemagick" "$CELLAR_ROOT/watchman" "$CELLAR_ROOT/openssl" \
          "$CELLAR_ROOT/git" "$CELLAR_ROOT/wget" "$CELLAR_ROOT/nosuch"
@@ -148,6 +150,7 @@ logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 
 source "$LIB/core/semver.sh"
 source "$LIB/core/outdated.sh"
+source "$LIB/audit.sh"
 source "$LIB/depgraph.sh"
 source "$LIB/snapshot.sh"
 source "$LIB/cleanup.sh"

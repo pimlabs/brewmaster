@@ -28,7 +28,7 @@ run_upgrade() {
   CASK_SET=" $(brew list --cask 2>/dev/null | tr '\n' ' ') "
 
   local out; out="$(brew outdated --verbose 2>/dev/null || true)"
-  local -a upgrade_list=() report_rows=()
+  local -a upgrade_list=() report_rows=() upgrade_meta=()
   local skipped_nonsemver=0
   local ln parsed name old_raw new_raw old_sv new_sv kind
 
@@ -89,6 +89,11 @@ run_upgrade() {
           fi
           upgrade_list+=("$name")
           report_rows+=("$name  ${old_sv}  ->  ${new_sv}  [${kind}]")
+          if $CHECK_DEPS; then
+            upgrade_meta+=("${old_sv}|${new_sv}|${kind}|${score}")
+          else
+            upgrade_meta+=("${old_sv}|${new_sv}|${kind}|")
+          fi
         else
           logv "Skip by level ($LEVEL, or-lower=$OR_LOWER): $name ${old_sv} -> ${new_sv} [${kind}]"
         fi
@@ -117,17 +122,20 @@ run_upgrade() {
           --header='tab: toggle · ctrl-a: all · enter: upgrade' \
           --prompt='Select packages > ' | \
       cut -f1)"
-    local -a new_list=() new_rows=()
+    local -a new_list=() new_rows=() new_meta=()
     for i in "${!upgrade_list[@]}"; do
       echo "$selected" | grep -qFx "${upgrade_list[$i]}" || continue
       new_list+=("${upgrade_list[$i]}")
       new_rows+=("${report_rows[$i]}")
+      new_meta+=("${upgrade_meta[$i]}")
     done
     upgrade_list=("${new_list[@]:-}")
     report_rows=("${new_rows[@]:-}")
+    upgrade_meta=("${new_meta[@]:-}")
     if [[ "${upgrade_list[0]:-}" == "" ]]; then
       upgrade_list=()
       report_rows=()
+      upgrade_meta=()
     fi
   fi
 
@@ -149,13 +157,26 @@ run_upgrade() {
   echo "Upgrading ${#upgrade_list[@]} package(s) [level=${LEVEL}, or-lower=${OR_LOWER}]:"
   printf '  - %s\n' "${report_rows[@]}"
 
-  local fail=0
-  for name in "${upgrade_list[@]}"; do
+  local fail=0 i score extra
+  for i in "${!upgrade_list[@]}"; do
+    name="${upgrade_list[$i]}"
+    IFS='|' read -r old_sv new_sv kind score <<<"${upgrade_meta[$i]}"
     echo "==> brew upgrade $name"
     if ! brew upgrade "$name"; then
       echo "Failed to upgrade: $name" >&2
       fail=$((fail+1))
+      continue
     fi
+    if [[ -n "$score" ]]; then
+      extra="$(jq -nc --arg pkg "$name" --arg old "$old_sv" --arg new "$new_sv" \
+        --arg bump "$kind" --arg profile "${PROFILE_NAME:-}" --argjson risk "$score" \
+        '{package:$pkg, old:$old, new:$new, bump:$bump, risk:$risk, profile:$profile, dry_run:false}')"
+    else
+      extra="$(jq -nc --arg pkg "$name" --arg old "$old_sv" --arg new "$new_sv" \
+        --arg bump "$kind" --arg profile "${PROFILE_NAME:-}" \
+        '{package:$pkg, old:$old, new:$new, bump:$bump, profile:$profile, dry_run:false}')"
+    fi
+    audit_append "upgrade" "$extra"
   done
 
   if (( fail > 0 )); then
