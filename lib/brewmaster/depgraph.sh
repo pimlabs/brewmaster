@@ -17,6 +17,7 @@ depgraph_build() {
   [[ -n "$DEPGRAPH_CACHE" && -f "$DEPGRAPH_CACHE" ]] && return 0
   DEPGRAPH_CACHE="/tmp/brewmaster-depgraph-$$.json"
   echo '{}' > "$DEPGRAPH_CACHE"
+  # shellcheck disable=SC2064 # expand now: $DEPGRAPH_CACHE is local and gone by EXIT
   trap "rm -f '${DEPGRAPH_CACHE}'" EXIT
 }
 

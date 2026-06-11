@@ -18,3 +18,12 @@ jobs:
             echo "=== $f ==="
             bash "$f"
           done
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run shellcheck
+        run: |
+          shellcheck bin/brewmaster
+          find lib/brewmaster -name "*.sh" | xargs shellcheck

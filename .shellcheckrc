@@ -1,0 +1,12 @@
+# SC2034 "appears unused": option flags and profile vars are set in
+# bin/brewmaster's case statement and consumed by lib/brewmaster/*.sh —
+# shellcheck can't see cross-file usage.
+disable=SC2034
+
+# SC2016: jq program strings are intentionally single-quoted (no shell
+# expansion wanted).
+disable=SC2016
+
+# SC1091: lib files are sourced via $LIB_DIR, a runtime-resolved path —
+# shellcheck can't follow it statically.
+disable=SC1091

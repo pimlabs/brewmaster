@@ -20,6 +20,7 @@ _cleanup_build() {
   [[ -n "$CLEANUP_CACHE" && -f "$CLEANUP_CACHE" ]] && return 0
   CLEANUP_CACHE="/tmp/brewmaster-cleanup-$$.json"
   brew info --json=v2 --installed 2>/dev/null > "$CLEANUP_CACHE" || true
+  # shellcheck disable=SC2064 # expand now: locals are gone by EXIT
   trap "rm -f '${CLEANUP_CACHE}' '${DEPGRAPH_CACHE:-}'" EXIT
 }
 
@@ -280,6 +281,7 @@ cleanup_main() {
       exit 1
     fi
     local tmpdir; tmpdir="$(mktemp -d)"
+    # shellcheck disable=SC2064 # expand now: locals are gone by EXIT
     trap "rm -rf '$tmpdir'; rm -f '${CLEANUP_CACHE}' '${DEPGRAPH_CACHE:-}'" EXIT
 
     local name category score reason
