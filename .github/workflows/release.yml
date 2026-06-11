@@ -27,12 +27,29 @@ jobs:
 
     steps:
       - name: Update Homebrew formula
-        uses: mislav/bump-homebrew-formula-action@v3
-        with:
-          formula-name: brewmaster
-          formula-path: Formula/brewmaster.rb
-          homebrew-tap: pimlabs/homebrew-brewmaster
-          base-branch: main
-          download-url: https://github.com/pimlabs/brewmaster/archive/${{ github.ref_name }}.tar.gz
         env:
-          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          TAP="pimlabs/homebrew-brewmaster"
+          PATH_="Formula/brewmaster.rb"
+          URL="https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
+
+          SHA256="$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)"
+
+          CURRENT="$(gh api "repos/$TAP/contents/$PATH_" --jq '.content' | base64 -d)"
+          BLOB_SHA="$(gh api "repos/$TAP/contents/$PATH_" --jq '.sha')"
+
+          NEW="$(printf '%s\n' "$CURRENT" \
+            | sed -E "s#^( *url \").*(\")\$#\\1${URL}\\2#" \
+            | sed -E "s#^( *sha256 \").*(\")\$#\\1${SHA256}\\2#" \
+            | sed -E "s#^( *version \").*(\")\$#\\1${VERSION}\\2#" \
+            | sed -E "s#^(.*assert_match \"brewmaster )[0-9]+\\.[0-9]+\\.[0-9]+(\".*)\$#\\1${VERSION}\\2#")"
+
+          gh api -X PUT "repos/$TAP/contents/$PATH_" \
+            -f message="brewmaster ${VERSION}" \
+            -f content="$(printf '%s\n' "$NEW" | base64)" \
+            -f sha="$BLOB_SHA" \
+            -f branch="main"
