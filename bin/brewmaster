@@ -146,7 +146,10 @@ USAGE
 }
 
 # logv — print a debug line to stderr when VERBOSE is true.
-logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
+logv() {
+  $VERBOSE || return 0
+  echo "[v] $*" >&2 || true
+}
 
 # set_level — select the bump level, rejecting conflicting level flags.
 set_level() {
