@@ -14,22 +14,6 @@ brew tap pimlabs/brewmaster
 brew install brewmaster
 ```
 
-## Quick Start
-
-```bash
-# Dry run — see what would be upgraded
-brewmaster --dry-run
-
-# Upgrade minor bumps only (default)
-brewmaster --level=minor
-
-# Upgrade patch + minor
-brewmaster --level=minor --or-lower
-
-# Upgrade only specific profile
-brewmaster --profile=work --dry-run
-```
-
 ## Why brewmaster
 
 Every other upgrade tool asks: *"What packages are outdated?"*
@@ -40,9 +24,117 @@ No AI. No guessing. Pure deterministic logic from real data.
 
 ---
 
+## Quick Start — Upgrades
+
+```bash
+# Dry run — see what would be upgraded (default level: patch)
+brewmaster --dry-run
+
+# Upgrade minor bumps only
+brewmaster --minor
+
+# Upgrade patch + minor (inclusive)
+brewmaster --minor --or-lower
+
+# Limit to specific packages
+brewmaster upgrade git node --minor
+```
+
+## Dependency Risk
+
+Score each candidate before upgrading, based on dependents and bump size.
+
+```bash
+# Skip HIGH-risk upgrades (score >= 7), warn + confirm on MEDIUM (4-6)
+brewmaster --check-deps --dry-run
+
+# Auto-confirm MEDIUM-risk packages, custom HIGH cutoff
+brewmaster --check-deps --risk-threshold=5 --yes
+
+# Risk report for one package, or all outdated packages sorted by risk
+brewmaster deps show openssl
+brewmaster deps show
+```
+
+## Profiles
+
+Named profiles filter which packages get upgraded and how aggressively.
+Config lives at `~/.config/brewmaster/profiles.toml`.
+
+```bash
+brewmaster --profile=work --dry-run
+brewmaster --profile=safe --check-deps
+
+brewmaster profile list
+brewmaster profile create
+brewmaster profile edit work
+brewmaster profile diff work safe
+brewmaster profile validate
+```
+
+Interactive multi-select (requires `fzf`):
+
+```bash
+brewmaster --profile=work --interactive
+```
+
+## Snapshots & Rollback
+
+```bash
+brewmaster snapshot save --label="before-work-upgrade"
+brewmaster snapshot list
+brewmaster snapshot diff 1
+brewmaster snapshot restore 1 --dry-run
+brewmaster snapshot delete 1 --force
+```
+
+## Cleanup & Intent
+
+Find orphan, stale, and old-pinned packages — and the dependency reasoning behind them.
+
+```bash
+# Read-only report (also the default with no flags)
+brewmaster cleanup --dry-run
+
+# fzf multi-select removal, with a "why" preview pane
+brewmaster cleanup --interactive
+
+# Auto-remove orphans with score >= 7
+brewmaster cleanup --force
+
+# Why is this package here?
+brewmaster why git
+
+# Machine package summary + estimated disk reclaim
+brewmaster bloat
+```
+
+A snapshot is taken automatically before any `cleanup` removal.
+
+## Audit Log & Reports
+
+Every upgrade, cleanup, and snapshot is recorded to
+`~/.local/share/brewmaster/audit.log` (NDJSON).
+
+```bash
+# Last 20 entries
+brewmaster log
+
+# Filter by package, action, or time window
+brewmaster log --package=git
+brewmaster log --action=cleanup --since=30d
+brewmaster log --format=json
+
+# Machine health summary
+brewmaster report
+```
+
+---
+
 ## Documentation
 
-- [ROADMAP.md](./ROADMAP.md) — milestones and feature scope
+- [ROADMAP.md](./ROADMAP.md) — current status and v2 planning
+- [docs/ARCHIVE_ROADMAP.md](./docs/ARCHIVE_ROADMAP.md) — v1 milestone history and frozen function contracts
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — commit conventions and development guide
 - [CHANGELOG.md](./CHANGELOG.md) — version history
 

@@ -2,7 +2,7 @@
 [ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
 set -euo pipefail
 
-BREWMASTER_VERSION="0.5.0"
+BREWMASTER_VERSION="0.6.0"
 
 # Global configuration (overridden by CLI flags below).
 LEVEL="patch"        # patch | minor | major  (exact category; exclusive by default)
@@ -28,6 +28,10 @@ PROFILE_REQUIRE_CONFIRM=false
 PROFILE_MAX_RISK=10
 PROFILE_LEVEL=""
 CLEANUP_FORCE=false
+AUDIT_PACKAGE=""
+AUDIT_ACTION=""
+AUDIT_SINCE=""
+AUDIT_FORMAT="table"
 
 usage() {
   cat <<'USAGE'
@@ -38,6 +42,8 @@ Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster cleanup [--dry-run|--interactive|--force]
        brewmaster why <package>
        brewmaster bloat
+       brewmaster log [--package=NAME] [--action=upgrade|cleanup|snapshot] [--since=Nd] [--format=table|json|csv]
+       brewmaster report
 
 Commands:
   upgrade                    Selective upgrade by semver bump level (default).
@@ -62,6 +68,9 @@ Commands:
                              install date, last-access heuristic).
   bloat                      Summary of installed package counts and estimated
                              disk reclaim from cleanup candidates.
+  log                        Show recent audit log entries (last 20 by default).
+  report                     Machine health summary: upgrades, cleanups,
+                             snapshots, orphans, and risk trend.
 
 Level (mutually exclusive; default: patch):
   --patch                    Apply patch bumps only (default).
@@ -91,6 +100,12 @@ Options (cleanup):
   --interactive, -i          fzf multi-select packages to remove (requires fzf).
   --force                    Auto-remove orphans with score >= 7.
 
+Options (log):
+  --package=NAME             Filter entries by package name.
+  --action=ACTION            Filter by action: upgrade|cleanup|snapshot.
+  --since=Nd|Nh|Nw           Only entries within this time window (default unit: days).
+  --format=table|json|csv    Output format (default: table).
+
 Options (general):
   -v, --verbose              More detailed output.
   -V, --version              Print version and exit.
@@ -100,6 +115,7 @@ Notes:
 - Pre-release (-rc.1) and +build metadata are ignored during comparison (only M.m.p).
 - Date/timestamp versions are skipped unless --allow-date is used.
 - Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
+- Audit log stored in: ~/.local/share/brewmaster/audit.log (XDG_DATA_HOME respected).
 - Risk score 0-10: HIGH >= threshold (default 7), MEDIUM 4-6, LOW 0-3.
 - Profiles read from: ~/.config/brewmaster/profiles.toml (XDG_CONFIG_HOME respected).
 USAGE
@@ -132,7 +148,7 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
               if [[ $# -gt 0 && "$1" != -* ]]; then
                 PROFILE_SUBCMD="$1"; shift
               fi ;;
-    cleanup|why|bloat) COMMAND="$1"; shift ;;
+    cleanup|why|bloat|log|report) COMMAND="$1"; shift ;;
     *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
   esac
 fi
@@ -161,6 +177,14 @@ while [[ $# -gt 0 ]]; do
     --profile=*)         PROFILE_NAME="${1#*=}" ;;
     --profile)           shift; PROFILE_NAME="${1-}" ;;
     --interactive|-i)    INTERACTIVE=true ;;
+    --package=*)         AUDIT_PACKAGE="${1#*=}" ;;
+    --package)           shift; AUDIT_PACKAGE="${1-}" ;;
+    --action=*)          AUDIT_ACTION="${1#*=}" ;;
+    --action)            shift; AUDIT_ACTION="${1-}" ;;
+    --since=*)           AUDIT_SINCE="${1#*=}" ;;
+    --since)             shift; AUDIT_SINCE="${1-}" ;;
+    --format=*)          AUDIT_FORMAT="${1#*=}" ;;
+    --format)            shift; AUDIT_FORMAT="${1-}" ;;
     -v|--verbose)        VERBOSE=true ;;
     -V|--version)    echo "brewmaster ${BREWMASTER_VERSION}"; exit 0 ;;
     -h|--help)       usage; exit 0 ;;
@@ -193,6 +217,7 @@ LIB_DIR="${BREWMASTER_LIB:-$SCRIPT_DIR/../lib/brewmaster}"
 source "$LIB_DIR/core/semver.sh"
 source "$LIB_DIR/core/outdated.sh"
 source "$LIB_DIR/core/upgrade.sh"
+source "$LIB_DIR/audit.sh"
 source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"
 source "$LIB_DIR/profile.sh"
@@ -247,4 +272,6 @@ case "$COMMAND" in
     _cleanup_build
     why "${PACKAGES[0]}" ;;
   bloat) cleanup_bloat ;;
+  log) audit_query ;;
+  report) audit_report ;;
 esac

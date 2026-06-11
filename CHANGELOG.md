@@ -7,6 +7,16 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.6.0] — 2026-06-11
+
+### Added (M5)
+
+- Persistent NDJSON audit log at `~/.local/share/brewmaster/audit.log` (`XDG_DATA_HOME` respected) — one record per upgrade, cleanup, and snapshot action
+- `brewmaster log [--package=NAME] [--action=upgrade|cleanup|snapshot] [--since=Nd|Nh|Nw] [--format=table|json|csv]` — query the audit log; defaults to the last 20 entries (table format), no cap when any filter is set
+- `brewmaster report` — machine health summary: upgrades (30d) by bump type, cleanups (90d), snapshot count/oldest/latest, current orphan count, and average risk score over the last 10 upgrades
+- `upgrade`/`cleanup`/`snapshot` actions are logged only on real (non-dry-run) execution; upgrade entries include a `risk` field when `--check-deps` was used
+- `tests/test_audit.sh` — 75 assertions covering append/query/report and integration with snapshot, cleanup, and upgrade
+
 ## [0.5.0] — 2026-06-10
 
 ### Added (M4)

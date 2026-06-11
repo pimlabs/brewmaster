@@ -242,14 +242,22 @@ _cleanup_snapshot_if_needed() {
   snapshot_save "pre-cleanup" >/dev/null
 }
 
-# _cleanup_remove_list — uninstall each package (one per line) on stdin.
+# _cleanup_remove_list — uninstall each package on stdin (full
+# "name|category|score|reason" rows). On real (non-DRY_RUN) success, appends
+# a "cleanup" audit entry.
 # Return: 0 if all succeeded; 1 if any failed.
 _cleanup_remove_list() {
-  local name fail=0
-  while IFS= read -r name; do
+  local name category score reason fail=0
+  while IFS='|' read -r name category score reason; do
     [[ -z "$name" ]] && continue
     echo "==> brew uninstall $name"
-    cleanup_execute "$name" || { echo "Failed to remove: $name" >&2; fail=$((fail+1)); }
+    if cleanup_execute "$name"; then
+      $DRY_RUN || audit_append "cleanup" "$(jq -nc --arg pkg "$name" --arg cat "$category" \
+        --argjson score "$score" '{package:$pkg, category:$cat, score:$score, dry_run:false}')"
+    else
+      echo "Failed to remove: $name" >&2
+      fail=$((fail+1))
+    fi
   done
   (( fail == 0 ))
 }
@@ -285,7 +293,7 @@ cleanup_main() {
       --delimiter='|' --with-nth=2,1,3,4 \
       --preview="cat '$tmpdir/{1}.why'" \
       --header='tab: toggle . ctrl-a: all . enter: remove selected' \
-      --prompt='Select packages to remove > ' | cut -d'|' -f1)"
+      --prompt='Select packages to remove > ')"
 
     if [[ -z "$selected" ]]; then
       echo "Nothing selected."
@@ -299,7 +307,7 @@ cleanup_main() {
 
   if $CLEANUP_FORCE; then
     local to_remove
-    to_remove="$(printf '%s\n' "$rows" | awk -F'|' '$2=="orphan" && $3+0>=7 {print $1}')"
+    to_remove="$(printf '%s\n' "$rows" | awk -F'|' '$2=="orphan" && $3+0>=7 {print}')"
     if [[ -z "$to_remove" ]]; then
       echo "No orphans with score >= 7."
       return 0

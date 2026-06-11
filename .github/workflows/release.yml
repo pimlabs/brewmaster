@@ -37,7 +37,7 @@ jobs:
           PATH_="Formula/brewmaster.rb"
           URL="https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
 
-          SHA256="$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)"
+          SHA256="$(curl -fsSL "$URL" | sha256sum | cut -d' ' -f1)"
 
           CURRENT="$(gh api "repos/$TAP/contents/$PATH_" --jq '.content' | base64 -d)"
           BLOB_SHA="$(gh api "repos/$TAP/contents/$PATH_" --jq '.sha')"

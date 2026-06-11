@@ -7,7 +7,9 @@ DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BM="$DIR/../bin/brewmaster"
 
 MOCK="$(mktemp -d)"
-trap 'rm -rf "$MOCK"' EXIT
+AUDIT_DIR="$(mktemp -d)"
+trap 'rm -rf "$MOCK" "$AUDIT_DIR"' EXIT
+export BREWMASTER_AUDIT_LOG="$AUDIT_DIR/audit.log"
 cat > "$MOCK/brew" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in

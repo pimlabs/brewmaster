@@ -24,6 +24,9 @@ export PATH="$MOCK_BIN:$PATH"
 SNAP_DIR="$(mktemp -d)"
 export BREWMASTER_SNAP_DIR="$SNAP_DIR"
 
+# --- Isolated audit log ---
+export BREWMASTER_AUDIT_LOG="$(mktemp -d)/audit.log"
+
 # --- Globals expected by snapshot.sh ---
 DRY_RUN=false
 SNAP_FORCE=false
@@ -35,6 +38,8 @@ logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 # Source core (needed by snapshot_diff for bump_kind / to_semver_3)
 # shellcheck source=../lib/brewmaster/core/semver.sh
 source "$LIB/core/semver.sh"
+# shellcheck source=../lib/brewmaster/audit.sh
+source "$LIB/audit.sh"
 # shellcheck source=../lib/brewmaster/snapshot.sh
 source "$LIB/snapshot.sh"
 
