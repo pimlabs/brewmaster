@@ -81,6 +81,22 @@ cat > "$INFO_JSON_FILE" <<EOF
       "installed": [
         {"version": "1.24.5", "installed_on_request": false, "installed_as_dependency": true, "time": $WGET_INSTALLED}
       ]
+    },
+    {
+      "name": "curl",
+      "pinned": false,
+      "dependencies": ["openssl"],
+      "installed": [
+        {"version": "8.4.0", "installed_on_request": false, "installed_as_dependency": true, "time": $WGET_INSTALLED, "runtime_dependencies": [{"full_name": "openssl"}]}
+      ]
+    },
+    {
+      "name": "gh",
+      "pinned": false,
+      "dependencies": ["git"],
+      "installed": [
+        {"version": "2.40.0", "installed_on_request": true, "installed_as_dependency": false, "time": $WGET_INSTALLED, "runtime_dependencies": [{"full_name": "git"}]}
+      ]
     }
   ]
 }
@@ -120,12 +136,6 @@ case "$*" in
   "list git")                    echo "$CELLAR_ROOT/git/2.44.0/bin/git" ;;
   "list wget")                   echo "$CELLAR_ROOT/wget/1.24.5/bin/wget" ;;
   "list nosuch")                 ;;
-  "uses --installed imagemagick") ;;
-  "uses --installed watchman")    ;;
-  "uses --installed openssl")     echo "curl" ;;
-  "uses --installed git")         echo "gh" ;;
-  "uses --installed wget")        ;;
-  "uses --installed nosuch")      ;;
   "--cellar imagemagick")         echo "$CELLAR_ROOT/imagemagick" ;;
   "--cellar watchman")            echo "$CELLAR_ROOT/watchman" ;;
   "--cellar openssl")             echo "$CELLAR_ROOT/openssl" ;;

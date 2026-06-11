@@ -6,8 +6,17 @@
 # Cache path — set by depgraph_build; empty until then.
 DEPGRAPH_CACHE=""
 
-# depgraph_build — initialize cache + register EXIT cleanup.
-# Call once before any other depgraph_* functions.
+# depgraph_build — fetch `brew info --json=v2 --installed` once and derive
+# reverse-dependency maps into DEPGRAPH_CACHE: {"runtime": {pkg: [dependents]},
+# "build": {pkg: [dependents]}}. Replaces the old per-package `brew uses`
+# calls (each `brew` invocation pays ~5-10s of Ruby/Formulary startup, so
+# 200+ packages took tens of minutes); this is a single brew call.
+#   runtime[pkg] = installed formulae whose installed[0].runtime_dependencies
+#                  includes pkg
+#   build[pkg]   = installed formulae that declare pkg in dependencies,
+#                  build_dependencies, optional_dependencies, or
+#                  recommended_dependencies (superset of runtime, mirrors
+#                  `brew uses --include-build`)
 # Idempotent: a no-op if the cache is already built (avoids re-registering the
 # EXIT trap when called from within a command-substitution subshell, which
 # would delete the cache file the moment that subshell exits — before the
@@ -16,12 +25,25 @@ DEPGRAPH_CACHE=""
 depgraph_build() {
   [[ -n "$DEPGRAPH_CACHE" && -f "$DEPGRAPH_CACHE" ]] && return 0
   DEPGRAPH_CACHE="/tmp/brewmaster-depgraph-$$.json"
-  echo '{}' > "$DEPGRAPH_CACHE"
+  brew info --json=v2 --installed 2>/dev/null | jq '
+    reduce .formulae[] as $f (
+      {runtime: {}, build: {}};
+      reduce (($f.installed[0].runtime_dependencies // [])[].full_name) as $d (.;
+        .runtime[$d] = ((.runtime[$d] // []) + [$f.name])
+      ) |
+      reduce ((($f.dependencies // []) + ($f.build_dependencies // [])
+               + ($f.optional_dependencies // []) + ($f.recommended_dependencies // [])
+               | unique)[]) as $d (.;
+        .build[$d] = ((.build[$d] // []) + [$f.name])
+      )
+    )
+  ' > "$DEPGRAPH_CACHE" 2>/dev/null
+  [[ -s "$DEPGRAPH_CACHE" ]] || echo '{"runtime":{},"build":{}}' > "$DEPGRAPH_CACHE"
   # shellcheck disable=SC2064 # expand now: $DEPGRAPH_CACHE is local and gone by EXIT
   trap "rm -f '${DEPGRAPH_CACHE}'" EXIT
 }
 
-# _depgraph_query — lazy-populate cache for a package's dep list.
+# _depgraph_query — look up a package's dependent list from DEPGRAPH_CACHE.
 # Args:   $1  package name
 #         $2  query type: "" for runtime only; "build" for --include-build
 # Stdout: JSON array of dependent package names
@@ -29,37 +51,9 @@ depgraph_build() {
 _depgraph_query() {
   local pkg="$1"
   local qtype="${2:-}"
-  local cache_key="${pkg}${qtype:+:$qtype}"
-
-  # Cache hit
-  local cached
-  cached="$(jq --arg k "$cache_key" 'if has($k) then .[$k] else empty end' \
-    "$DEPGRAPH_CACHE" 2>/dev/null)"
-  if [[ -n "$cached" ]]; then
-    echo "$cached"
-    return 0
-  fi
-
-  # Fresh query
-  local -a brew_args=("uses" "--installed")
-  [[ "$qtype" == "build" ]] && brew_args=("uses" "--include-build" "--installed")
-
-  local deps_output
-  deps_output="$(brew "${brew_args[@]}" "$pkg" 2>/dev/null || true)"
-
-  local arr
-  if [[ -z "$deps_output" ]]; then
-    arr='[]'
-  else
-    arr="$(echo "$deps_output" | jq -R 'select(length>0)' | jq -s '.')"
-  fi
-
-  # Write back to cache (atomic: write to tmp then mv)
-  local tmp; tmp="$(mktemp)"
-  jq --arg k "$cache_key" --argjson v "$arr" '. + {($k): $v}' \
-    "$DEPGRAPH_CACHE" > "$tmp" && mv "$tmp" "$DEPGRAPH_CACHE"
-
-  echo "$arr"
+  local key="runtime"
+  [[ "$qtype" == "build" ]] && key="build"
+  jq --arg p "$pkg" --arg k "$key" '.[$k][$p] // []' "$DEPGRAPH_CACHE" 2>/dev/null
 }
 
 # depgraph_is_safe — check whether a package has any installed dependents.

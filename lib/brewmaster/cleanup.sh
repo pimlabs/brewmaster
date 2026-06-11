@@ -115,8 +115,15 @@ cleanup_score() {
 cleanup_scan() {
   depgraph_build
   _cleanup_build
+  local -a names=()
+  while IFS= read -r name; do
+    [[ -n "$name" ]] && names+=("$name")
+  done < <(brew list --formula 2>/dev/null)
+  local total=${#names[@]} i=0
   local name f vcount pinned on_request safe install_epoch last_epoch days score category reason
-  for name in $(brew list --formula 2>/dev/null); do
+  for name in "${names[@]}"; do
+    i=$((i+1))
+    printf '\r\033[K[%d/%d] %s' "$i" "$total" "$name" >&2
     f="$(_cleanup_facts "$name")"
     IFS=$'\t' read -r vcount pinned on_request safe install_epoch last_epoch <<<"$f"
     score="$(cleanup_score_from_facts "$vcount" "$pinned" "$on_request" "$safe" "$install_epoch" "$last_epoch")"
@@ -133,6 +140,7 @@ cleanup_scan() {
     fi
     printf '%s|%s|%s|%s\n' "$name" "$category" "$score" "$reason"
   done
+  (( total > 0 )) && printf '\r\033[K' >&2
 }
 
 # cleanup_execute "$pkg" — brew uninstall "$pkg"; respects $DRY_RUN.
@@ -284,11 +292,15 @@ cleanup_main() {
     # shellcheck disable=SC2064 # expand now: locals are gone by EXIT
     trap "rm -rf '$tmpdir'; rm -f '${CLEANUP_CACHE}' '${DEPGRAPH_CACHE:-}'" EXIT
 
-    local name category score reason
+    local total; total="$(printf '%s\n' "$rows" | grep -c .)"
+    local i=0 name category score reason
     while IFS='|' read -r name category score reason; do
       [[ -z "$name" ]] && continue
+      i=$((i+1))
+      printf '\r\033[K[%d/%d] %s' "$i" "$total" "$name" >&2
       why "$name" > "$tmpdir/${name}.why" 2>/dev/null || true
     done <<<"$rows"
+    printf '\r\033[K' >&2
 
     local selected
     selected="$(printf '%s\n' "$rows" | fzf --multi --ansi \
@@ -341,15 +353,19 @@ cleanup_bloat() {
   stale="$(printf '%s\n' "$rows" | awk -F'|' '$2=="stale"'  | grep -c . || true)"
   pinned="$(printf '%s\n' "$rows" | awk -F'|' '$2=="pinned-old"' | grep -c . || true)"
 
-  local kb=0 name category score reason cellar size
+  local kb=0 total i=0 name category score reason cellar size
+  total="$(printf '%s\n' "$rows" | grep -c .)"
   while IFS='|' read -r name category score reason; do
     [[ -z "$name" ]] && continue
+    i=$((i+1))
+    printf '\r\033[K[%d/%d] %s' "$i" "$total" "$name" >&2
     cellar="$(brew --cellar "$name" 2>/dev/null || true)"
     if [[ -n "$cellar" && -d "$cellar" ]]; then
       size="$(du -sk "$cellar" 2>/dev/null | awk '{print $1}')"
       kb=$((kb + size))
     fi
   done <<<"$rows"
+  (( total > 0 )) && printf '\r\033[K' >&2
   local mb=$((kb / 1024))
 
   echo "Machine package report"
