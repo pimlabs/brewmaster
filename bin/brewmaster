@@ -2,7 +2,7 @@
 [ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
 set -euo pipefail
 
-BREWMASTER_VERSION="0.4.0"
+BREWMASTER_VERSION="0.5.0"
 
 # Global configuration (overridden by CLI flags below).
 LEVEL="patch"        # patch | minor | major  (exact category; exclusive by default)
@@ -27,6 +27,7 @@ PROFILE_EXCLUDE=()
 PROFILE_REQUIRE_CONFIRM=false
 PROFILE_MAX_RISK=10
 PROFILE_LEVEL=""
+CLEANUP_FORCE=false
 
 usage() {
   cat <<'USAGE'
@@ -34,6 +35,9 @@ Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster snapshot <save|list|diff|restore|delete> [ref] [options]
        brewmaster deps show [package]
        brewmaster profile <list|create|edit|diff|validate> [args]
+       brewmaster cleanup [--dry-run|--interactive|--force]
+       brewmaster why <package>
+       brewmaster bloat
 
 Commands:
   upgrade                    Selective upgrade by semver bump level (default).
@@ -51,6 +55,13 @@ Commands:
   profile edit [name]        Open profiles.toml in $EDITOR.
   profile diff <a> <b>       Compare include lists between two profiles.
   profile validate           Check profiles.toml for errors.
+  cleanup                    Report orphan/stale/pinned-old formulae (read-only by default).
+                             --interactive selects packages to remove (fzf);
+                             --force auto-removes orphans with score >= 7.
+  why <package>              Explain why a formula is installed (dependents,
+                             install date, last-access heuristic).
+  bloat                      Summary of installed package counts and estimated
+                             disk reclaim from cleanup candidates.
 
 Level (mutually exclusive; default: patch):
   --patch                    Apply patch bumps only (default).
@@ -74,6 +85,11 @@ Options (snapshot):
   --label=TEXT               Label for 'snapshot save'.
   --force                    Skip confirmation for 'snapshot delete'.
   -n, --dry-run              Show plan without executing for 'snapshot restore'.
+
+Options (cleanup):
+  -n, --dry-run              Read-only report (also the default with no flags).
+  --interactive, -i          fzf multi-select packages to remove (requires fzf).
+  --force                    Auto-remove orphans with score >= 7.
 
 Options (general):
   -v, --verbose              More detailed output.
@@ -116,6 +132,7 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
               if [[ $# -gt 0 && "$1" != -* ]]; then
                 PROFILE_SUBCMD="$1"; shift
               fi ;;
+    cleanup|why|bloat) COMMAND="$1"; shift ;;
     *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
   esac
 fi
@@ -136,7 +153,7 @@ while [[ $# -gt 0 ]]; do
     --casks)         ONLY_CASKS=true ;;
     --label=*)       SNAP_LABEL="${1#*=}" ;;
     --label)         shift; SNAP_LABEL="${1-}" ;;
-    --force)             SNAP_FORCE=true ;;
+    --force)             SNAP_FORCE=true; CLEANUP_FORCE=true ;;
     --check-deps)        CHECK_DEPS=true ;;
     --risk-threshold=*)  RISK_THRESHOLD="${1#*=}" ;;
     --risk-threshold)    shift; RISK_THRESHOLD="${1-}" ;;
@@ -179,6 +196,7 @@ source "$LIB_DIR/core/upgrade.sh"
 source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"
 source "$LIB_DIR/profile.sh"
+source "$LIB_DIR/cleanup.sh"
 
 if [[ -n "$PROFILE_NAME" ]]; then
   profile_load "$PROFILE_NAME" || exit 1
@@ -219,4 +237,14 @@ case "$COMMAND" in
       "")       echo "Usage: brewmaster profile <list|create|edit|diff|validate>" >&2; exit 1 ;;
       *)        echo "Unknown profile subcommand: $PROFILE_SUBCMD" >&2; exit 1 ;;
     esac ;;
+  cleanup) cleanup_main ;;
+  why)
+    if [[ -z "${PACKAGES[0]:-}" ]]; then
+      echo "Usage: brewmaster why <package>" >&2
+      exit 1
+    fi
+    depgraph_build
+    _cleanup_build
+    why "${PACKAGES[0]}" ;;
+  bloat) cleanup_bloat ;;
 esac

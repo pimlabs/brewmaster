@@ -8,8 +8,13 @@ DEPGRAPH_CACHE=""
 
 # depgraph_build — initialize cache + register EXIT cleanup.
 # Call once before any other depgraph_* functions.
+# Idempotent: a no-op if the cache is already built (avoids re-registering the
+# EXIT trap when called from within a command-substitution subshell, which
+# would delete the cache file the moment that subshell exits — before the
+# caller can read it).
 # Return: 0
 depgraph_build() {
+  [[ -n "$DEPGRAPH_CACHE" && -f "$DEPGRAPH_CACHE" ]] && return 0
   DEPGRAPH_CACHE="/tmp/brewmaster-depgraph-$$.json"
   echo '{}' > "$DEPGRAPH_CACHE"
   trap "rm -f '${DEPGRAPH_CACHE}'" EXIT

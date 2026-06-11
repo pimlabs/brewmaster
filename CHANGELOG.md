@@ -7,6 +7,19 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.5.0] — 2026-06-10
+
+### Added (M4)
+
+- `brewmaster cleanup` — report orphan/stale/pinned-old formulae with a 0–10 removability score (read-only by default, same as `--dry-run`)
+- `--interactive` / `-i` for `cleanup` — fzf multi-select packages to remove, with a `why`-based preview pane
+- `--force` for `cleanup` — auto-remove `orphan` candidates with score ≥ 7
+- `brewmaster why <package>` — explain why a formula is installed: manual vs. dependency, install date, dependents, last-access heuristic, extra versions
+- `brewmaster bloat` — machine package summary: totals, category counts, estimated disk reclaim from cleanup candidates
+- Auto-snapshot ("pre-cleanup") before any `cleanup` removal, unless one already exists for today
+- `tests/test_cleanup.sh` — 42 scoring, scanning, reporting, and removal-flow assertions
+- Scope: formulae only (`brew uses`/`brew leaves` don't apply meaningfully to casks); `bloat`'s totals include casks, but categorization and removal do not
+
 ## [0.4.0] — 2026-06-10
 
 ### Added (M3)

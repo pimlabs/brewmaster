@@ -407,7 +407,7 @@ brewmaster --profile=work --interactive
 
 ## Milestone 4 — Cleanup & Intent
 
-**Status:** `[ ] todo`
+**Status:** `[x] done`
 **Branch:** `feat/cleanup`
 **Version:** `v0.5.0`
 **Depends on:** M0, M1, M2, M3
