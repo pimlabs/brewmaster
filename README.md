@@ -24,6 +24,19 @@ No AI. No guessing. Pure deterministic logic from real data.
 
 ---
 
+## Commands at a Glance
+
+| Area | Command | What it does |
+|---|---|---|
+| Upgrade | `brewmaster [upgrade] [pkgs...] [--patch\|--minor\|--major] [--dry-run]` | Selective upgrade by semver bump (default) |
+| Dependency Risk | `brewmaster --check-deps` / `brewmaster deps show [pkg]` | Score upgrade risk before applying |
+| Profiles | `brewmaster --profile=NAME` / `brewmaster profile {list,create,edit,diff,validate}` | Named upgrade policies |
+| Snapshots | `brewmaster snapshot {save,list,diff,restore,delete}` | Save/restore Homebrew package state |
+| Cleanup & Intent | `brewmaster cleanup` / `brewmaster why <pkg>` / `brewmaster bloat` | Find & explain orphan/stale packages |
+| Audit & Reports | `brewmaster log` / `brewmaster report` | History and machine health summary |
+
+---
+
 ## Quick Start — Upgrades
 
 ```bash
