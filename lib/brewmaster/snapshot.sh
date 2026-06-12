@@ -125,6 +125,7 @@ snapshot_diff() {
 
   # Build current state: name -> version
   local tmp_cur; tmp_cur="$(mktemp)"
+  trap 'rm -f "$tmp_cur"' RETURN
   brew list --versions 2>/dev/null | awk '{print $1"\t"$NF}' > "$tmp_cur"
 
   local found=false
@@ -164,7 +165,6 @@ snapshot_diff() {
     fi
   done < "$tmp_cur"
 
-  rm -f "$tmp_cur"
   $found || echo "No changes since snapshot."
 }
 
@@ -179,6 +179,7 @@ snapshot_restore() {
 
   # Build current state
   local tmp_cur; tmp_cur="$(mktemp)"
+  trap 'rm -f "$tmp_cur"' RETURN
   brew list --versions 2>/dev/null | awk '{print $1"\t"$NF}' > "$tmp_cur"
 
   local -a to_install=()
@@ -192,8 +193,6 @@ snapshot_restore() {
       to_install+=("${pkg}@${snap_ver}:changed")
     fi
   done < "$snap_path"
-
-  rm -f "$tmp_cur"
 
   if (( ${#to_install[@]} == 0 )); then
     echo "Already matches snapshot. Nothing to restore."
