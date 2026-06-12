@@ -158,10 +158,11 @@ run_upgrade() {
   printf '  - %s\n' "${report_rows[@]}"
 
   local fail=0 i score extra
+  local total="${#upgrade_list[@]}"
   for i in "${!upgrade_list[@]}"; do
     name="${upgrade_list[$i]}"
     IFS='|' read -r old_sv new_sv kind score <<<"${upgrade_meta[$i]}"
-    echo "==> brew upgrade $name"
+    printf '\r\033[K[%d/%d] ==> brew upgrade %s\n' "$((i+1))" "$total" "$name"
     if ! brew upgrade "$name"; then
       echo "Failed to upgrade: $name" >&2
       fail=$((fail+1))
