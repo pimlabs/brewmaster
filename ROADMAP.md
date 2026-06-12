@@ -1,33 +1,10 @@
 # ROADMAP — brewmaster
 
-> **For AI coding assistants (Claude Code and others):**
-> v1 (M0-M5) is complete and frozen — see
-> [`docs/ARCHIVE_ROADMAP.md`](docs/ARCHIVE_ROADMAP.md) for milestone history
-> and frozen function contracts referenced by `tests/`.
-> v2 scope is not yet defined. Do not invent new milestones or features —
-> propose changes (as an issue, or a new section under "v2 — Planning" below)
-> before implementing.
+> **For AI coding assistants (Claude Code and others):** v1 (M0-M5) is complete and frozen — see [`docs/ARCHIVE_ROADMAP.md`](docs/ARCHIVE_ROADMAP.md) for milestone history and frozen function contracts referenced by `tests/`.
+> Do not modify v1 function contracts or implement features outside the scope below.
+> Propose changes as an issue, or under the relevant planning section, before implementing.
 > Do not add Co-authored-by or any AI tool attribution to commits.
-
----
-
-## Philosophy
-
-> **brewmaster knows what's on your machine — and why.**
-> Upgrade only what's deliberate. Keep only what's intentional.
-
-v1 built out this philosophy across five pillars:
-
-| Question | Answered by |
-|---|---|
-| Am I safe to proceed? | M1 — Snapshot |
-| What's risky to upgrade? | M2 — Dependency Graph |
-| What should I upgrade right now? | M3 — Profile System |
-| What belongs on my machine? | M4 — Cleanup & Intent |
-| What happened over time? | M5 — Audit Log |
-
-Any future feature should still answer one of these questions, or a new
-question in the same spirit. If it doesn't, it's out of scope.
+> Coding conventions: see [AGENTS.md](AGENTS.md).
 
 ---
 
@@ -36,63 +13,89 @@ question in the same spirit. If it doesn't, it's out of scope.
 `brewmaster` is a CLI tool for selective package upgrades based on semver classification.
 Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 
-**Stack:** Bash (POSIX-compatible where possible), `jq`, `curl`, `fzf` (optional)
+**Stack:** Bash (POSIX-compatible where possible), `jq`, `fzf` (optional)
 **Target OS:** macOS (Homebrew)
 **Distribution:** `brew tap pimlabs/brewmaster`
+
+See [PHILOSOPHY.md](PHILOSOPHY.md) for design rationale and the test for evaluating new features.
 
 ---
 
 ## Status
 
-v1 is complete and shipped:
+| Milestone                         | Version | Status      |
+| --------------------------------- | ------- | ----------- |
+| M0 — Refactor & Foundation        | v0.1.0  | `[x] done`  |
+| M1 — Snapshot & Rollback          | v0.2.0  | `[x] done`  |
+| M2 — Dependency Graph Awareness   | v0.3.0  | `[x] done`  |
+| M3 — Profile System               | v0.4.0  | `[x] done`  |
+| M4 — Cleanup & Intent             | v0.5.0  | `[x] done`  |
+| M5 — Audit Log & Report           | v0.6.0  | `[x] done`  |
+| M6 — Reliability & Correctness    | v0.7.0  | `[ ] open`  |
+| M7 — Polish & Completions         | v0.8.0  | `[ ] open`  |
+| M8 — Stable Release               | v1.0.0  | `[ ] open`  |
 
-| Milestone | Version | Status |
-|---|---|---|
-| M0 — Refactor & Foundation | v0.1.0 | `[x] done` |
-| M1 — Snapshot & Rollback | v0.2.0 | `[x] done` |
-| M2 — Dependency Graph Awareness | v0.3.0 | `[x] done` |
-| M3 — Profile System | v0.4.0 | `[x] done` |
-| M4 — Cleanup & Intent | v0.5.0 | `[x] done` |
-| M5 — Audit Log & Report | v0.6.0 | `[x] done` |
-
-Full scope, function contracts, and acceptance criteria for each milestone:
-see [`docs/ARCHIVE_ROADMAP.md`](docs/ARCHIVE_ROADMAP.md).
-
----
-
-## Coding Conventions
-
-> These apply to every file, v1 or v2. Read before writing any code.
-
-1. Every public function must have a header comment: purpose, args, stdout, return code
-2. Use `local` for all variables inside functions
-3. No `set -e` inside functions — handle errors explicitly with `|| return 1`
-4. `DRY_RUN` is a global boolean — always check before any destructive action
-5. `VERBOSE` is a global boolean — use `logv()` from core for debug output
-6. All user-facing paths use `${XDG_DATA_HOME:-$HOME/.local/share}/brewmaster/`
-7. All config paths use `${XDG_CONFIG_HOME:-$HOME/.config}/brewmaster/`
-8. `jq` is available — declared as hard dependency in formula
-9. `fzf` is optional — always degrade gracefully with a clear install message
-10. Test functions follow: `test_functionname_condition()` with simple assert helpers
-11. Never auto-remove or auto-modify packages without explicit user confirmation or `--force`
-12. Never add Co-authored-by or any AI tool attribution to commits
+Full scope and function contracts for M0–M5: see [`docs/ARCHIVE_ROADMAP.md`](docs/ARCHIVE_ROADMAP.md).
 
 ---
 
-## Out of Scope (v1)
+## M6 — Reliability & Correctness
 
-These were considered and explicitly deferred:
+> Fix what is broken before adding what is missing.
+> A tool that touches package state must produce correct output and reliable operations.
 
-| Feature | Reason |
-|---|---|
-| Multi-driver (npm, pip, cargo) | Philosophy needs to mature at brew level first |
-| Cross-machine sync | Doesn't fit personal tool philosophy |
-| Plugin/hook system | Shell is already composable — not needed at this scale |
-| Team/org policy enforcement | Out of solo-tool scope |
-| Shell completions (bash/zsh) | Not scoped into any v1 milestone; candidate for v2 |
+| # | Issue | File | Acceptance criteria |
+|---|-------|------|---------------------|
+| 1 | `snapshot_restore` calls `brew install pkg@ver` — only works for versioned taps, silently fails for most packages | `snapshot.sh` | Limitation documented clearly in output; or reliable restore path implemented if feasible |
+| 2 | `cleanup_bloat` — `local total` declared twice; installed count overwritten by scan row count | `cleanup.sh` | Variable renamed; "Total installed" shows correct value |
+| 3 | `_cleanup_last_access` calls `brew list $pkg` per formula inside `cleanup_scan` loop — O(n) brew invocations | `cleanup.sh` | Replaced with single upfront file map; `cleanup_scan` completes in < 10s for 200 packages |
+| 4 | Tmpfile `$tmp_cur` in `snapshot_diff` and `snapshot_restore` not removed on early exit | `snapshot.sh` | Trap added; tmpfile cleaned on all exit paths |
+| 5 | `upgrade.sh` misplaced in `core/` — touches brew and user I/O, not a pure function | `lib/brewmaster/core/upgrade.sh` | Moved to `lib/brewmaster/upgrade.sh`; all source paths in `bin/brewmaster` updated |
 
 ---
 
-## v2 — Planning
+## M7 — Polish & Completions
 
-_Not yet defined. Add proposals here before implementation._
+> Add what is missing before calling it stable.
+
+| # | Feature | Notes |
+|---|---------|-------|
+| 1 | Progress indicator in `run_upgrade` | Match `\r\033[K[i/total]` pattern already in `cleanup_scan` |
+| 2 | Shell completions — bash, zsh, fish | `completions/brewmaster.bash`, `completions/brewmaster.zsh`, `completions/brewmaster.fish` |
+| 3 | Man page | `docs/brewmaster.1` — installed via Homebrew formula |
+| 4 | Empty array pattern cleanup | Replace `"${arr[@]:-}"` workarounds with `(( ${#arr[@]} == 0 ))` across all files |
+| 5 | Error handling audit | Review all `|| return 1` paths in `semver.sh` and `audit.sh`; no silent failures |
+
+---
+
+## M8 — Stable Release
+
+> No new features. Tag after M7 is complete and battle-tested in daily use.
+
+Criteria before tagging v1.0.0:
+- All M6 and M7 items complete and passing CI
+- Used daily without friction for at least 2 weeks post-M7
+- No open 🔴 issues
+
+---
+
+## Post-v1.0 Candidates
+
+*Not yet scoped. Propose as issues before implementing. Each must pass the test in PHILOSOPHY.md.*
+
+- `brewmaster why` — richer reasoning (install date, source, last-used heuristic)
+- `brewmaster report` — machine health timeline (trend, not just snapshot)
+- `brewmaster pin` — intent annotation (`--reason="legacy project XYZ"`)
+
+---
+
+## Out of Scope
+
+These were considered and explicitly rejected. See [PHILOSOPHY.md](PHILOSOPHY.md) for the full reasoning.
+
+| Feature                        | Reason                                                      |
+| ------------------------------ | ----------------------------------------------------------- |
+| Multi-driver (npm, pip, cargo) | Dev environment layer — different domain from machine layer |
+| Cross-machine sync             | Prescriptive and future-tense — against brewmaster philosophy |
+| Plugin/hook system             | Shell is already composable — not needed at this scale      |
+| Team/org policy enforcement    | Out of solo-tool scope                                      |

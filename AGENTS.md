@@ -52,7 +52,7 @@ test_functionname_condition()
 
 ## Coding Conventions
 
-These are non-negotiable. Apply to every file, v1 and v2.
+These are non-negotiable. Apply to every file, all milestones.
 
 1. Every public function must have a header comment: purpose, args, stdout, return code
 2. Use `local` for all variables inside functions
@@ -65,10 +65,11 @@ These are non-negotiable. Apply to every file, v1 and v2.
 9. `fzf` is optional — always degrade gracefully
 10. Never auto-remove or auto-modify packages without explicit user confirmation or `--force`
 11. Never add Co-authored-by or any AI tool attribution to commits
+12. Empty array checks use `(( ${#arr[@]} == 0 ))` — not `"${arr[@]:-}"` workarounds
 
 ---
 
-## v1 Is Frozen
+## Frozen: M0–M5
 
 M0–M5 (v0.1.0–v0.6.x) are complete and frozen. Do not modify v1 function contracts.
 Function contracts and acceptance criteria are in `docs/ARCHIVE_ROADMAP.md`.
@@ -76,17 +77,25 @@ Tests in `tests/` reference these contracts — do not break them.
 
 ---
 
-## v2 Scope
+## Current Scope: M6 and M7
 
-v2 is not yet fully defined. Do not invent milestones or implement features speculatively.
+See ROADMAP.md for full milestone details. In summary:
 
-Confirmed v2 candidates:
+**M6 — Reliability & Correctness (v0.7.0)**
+- Fix `snapshot_restore` versioned install bug
+- Fix `cleanup_bloat` variable shadowing
+- Fix `_cleanup_last_access` O(n) brew calls
+- Fix tmpfile leak in snapshot diff/restore
+
+**M7 — Polish & Completions (v0.8.0)**
+- Progress indicator in `run_upgrade`
 - Shell completions (bash, zsh, fish)
-- `brewmaster why` with richer reasoning (install date, source, last-used heuristic)
-- `brewmaster report` as machine health timeline (trend, not just snapshot)
-- `brewmaster pin` with intent annotation (`--reason="..."`)
+- Man page (`docs/brewmaster.1`)
+- Empty array pattern cleanup
+- Error handling audit
 
-Before proposing anything else, apply the test in PHILOSOPHY.md.
+Do not implement features outside M6 and M7 without a proposal in ROADMAP.md first.
+Before proposing anything new, apply the test in PHILOSOPHY.md.
 
 ---
 
