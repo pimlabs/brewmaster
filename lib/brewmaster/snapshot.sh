@@ -199,12 +199,20 @@ snapshot_restore() {
     return 0
   fi
 
+  echo "Note: restore re-installs packages via \`brew install pkg@version\`."
+  echo "This only works if Homebrew has a versioned formula/cask for that"
+  echo "exact version (e.g. node@18, python@3.11, postgresql@14). For most"
+  echo "other packages, Homebrew has no historical version and the install"
+  echo "below will fail — this is a Homebrew limitation, not a bug."
+  echo
   echo "Restore plan (${#to_install[@]} package(s)):"
-  local entry pkg_ver reason
+  local entry pkg_ver reason note
   for entry in "${to_install[@]}"; do
     pkg_ver="${entry%%:*}"
     reason="${entry##*:}"
-    printf '  - %s  [%s]\n' "$pkg_ver" "$reason"
+    note=""
+    brew info "$pkg_ver" >/dev/null 2>&1 || note="  [likely unsupported — no versioned formula]"
+    printf '  - %s  [%s]%s\n' "$pkg_ver" "$reason" "$note"
   done
 
   $DRY_RUN && return 0
@@ -214,7 +222,7 @@ snapshot_restore() {
     pkg_ver="${entry%%:*}"
     echo "==> brew install $pkg_ver"
     if ! brew install "$pkg_ver" 2>&1; then
-      echo "Warning: failed to install $pkg_ver" >&2
+      echo "Warning: $pkg_ver not available — Homebrew has no versioned formula for this version, cannot restore." >&2
       fail=$((fail+1))
     fi
   done
