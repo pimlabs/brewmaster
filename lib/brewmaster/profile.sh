@@ -160,18 +160,20 @@ profile_diff() {
 
   echo "Profile '$a' vs '$b':"
   local pkg
-  for pkg in "${inc_a[@]:-}"; do
-    [[ -z "$pkg" ]] && continue
-    if (( ${#inc_b[@]} == 0 )) || ! _in_list "$pkg" "${inc_b[@]}"; then
-      echo "  + $pkg  (only in $a)"
-    fi
-  done
-  for pkg in "${inc_b[@]:-}"; do
-    [[ -z "$pkg" ]] && continue
-    if (( ${#inc_a[@]} == 0 )) || ! _in_list "$pkg" "${inc_a[@]}"; then
-      echo "  - $pkg  (only in $b)"
-    fi
-  done
+  if (( ${#inc_a[@]} > 0 )); then
+    for pkg in "${inc_a[@]}"; do
+      if (( ${#inc_b[@]} == 0 )) || ! _in_list "$pkg" "${inc_b[@]}"; then
+        echo "  + $pkg  (only in $a)"
+      fi
+    done
+  fi
+  if (( ${#inc_b[@]} > 0 )); then
+    for pkg in "${inc_b[@]}"; do
+      if (( ${#inc_a[@]} == 0 )) || ! _in_list "$pkg" "${inc_a[@]}"; then
+        echo "  - $pkg  (only in $b)"
+      fi
+    done
+  fi
 }
 
 # profile_create — interactive wizard; appends a new [profiles.NAME] section.
@@ -260,16 +262,17 @@ profile_validate() {
   done < <(grep -E '^\[profiles\.[^]]+\]' "$file")
 
   local n lvl
-  for n in "${seen[@]:-}"; do
-    [[ -z "$n" ]] && continue
-    lvl="$(_profile_section "$n" "$file" | grep '^level' | sed -e 's/^[^=]*=[[:space:]]*//' -e 's/"//g')" || true
-    if [[ -n "$lvl" ]]; then
-      case "$lvl" in
-        patch|minor|major) ;;
-        *) errors+=("profile '${n}': invalid level '${lvl}' (expected patch|minor|major)") ;;
-      esac
-    fi
-  done
+  if (( ${#seen[@]} > 0 )); then
+    for n in "${seen[@]}"; do
+      lvl="$(_profile_section "$n" "$file" | grep '^level' | sed -e 's/^[^=]*=[[:space:]]*//' -e 's/"//g')" || true
+      if [[ -n "$lvl" ]]; then
+        case "$lvl" in
+          patch|minor|major) ;;
+          *) errors+=("profile '${n}': invalid level '${lvl}' (expected patch|minor|major)") ;;
+        esac
+      fi
+    done
+  fi
 
   if (( ${#errors[@]} > 0 )); then
     printf 'Error: %s\n' "${errors[@]}" >&2
