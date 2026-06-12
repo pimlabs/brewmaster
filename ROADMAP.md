@@ -58,13 +58,13 @@ Full scope and function contracts for M0–M5: see [`docs/ARCHIVE_ROADMAP.md`](d
 
 > Add what is missing before calling it stable.
 
-| # | Feature | Notes |
-|---|---------|-------|
-| 1 | Progress indicator in `run_upgrade` | Match `\r\033[K[i/total]` pattern already in `cleanup_scan` |
-| 2 | Shell completions — bash, zsh, fish | `completions/brewmaster.bash`, `completions/brewmaster.zsh`, `completions/brewmaster.fish` |
-| 3 | Man page | `docs/brewmaster.1` — installed via Homebrew formula |
-| 4 | Empty array pattern cleanup | Replace `"${arr[@]:-}"` workarounds with `(( ${#arr[@]} == 0 ))` across all files |
-| 5 | Error handling audit | Review all `|| return 1` paths in `semver.sh` and `audit.sh`; no silent failures |
+| # | Feature | Notes | Status |
+|---|---------|-------|--------|
+| 1 | Progress indicator in `run_upgrade` | Match `\r\033[K[i/total]` pattern already in `cleanup_scan` | `[x] done` |
+| 2 | Shell completions — bash, zsh, fish | `completions/brewmaster.bash`, `completions/brewmaster.zsh`, `completions/brewmaster.fish` | `[ ] open` |
+| 3 | Man page | `docs/brewmaster.1` — installed via Homebrew formula | `[ ] open` |
+| 4 | Empty array pattern cleanup | Replace `"${arr[@]:-}"` workarounds with `(( ${#arr[@]} == 0 ))` across all files | `[x] done` |
+| 5 | Error handling audit | Review all `\|\| return 1` paths in `semver.sh` and `audit.sh`; no silent failures | `[x] done — all return-1 paths print or propagate an error message` |
 
 ---
 
