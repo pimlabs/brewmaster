@@ -129,10 +129,11 @@ run_upgrade() {
       new_rows+=("${report_rows[$i]}")
       new_meta+=("${upgrade_meta[$i]}")
     done
-    upgrade_list=("${new_list[@]:-}")
-    report_rows=("${new_rows[@]:-}")
-    upgrade_meta=("${new_meta[@]:-}")
-    if [[ "${upgrade_list[0]:-}" == "" ]]; then
+    if (( ${#new_list[@]} > 0 )); then
+      upgrade_list=("${new_list[@]}")
+      report_rows=("${new_rows[@]}")
+      upgrade_meta=("${new_meta[@]}")
+    else
       upgrade_list=()
       report_rows=()
       upgrade_meta=()
