@@ -31,7 +31,7 @@ See [PHILOSOPHY.md](PHILOSOPHY.md) for design rationale and the test for evaluat
 | M3 — Profile System               | v0.4.0  | `[x] done`  |
 | M4 — Cleanup & Intent             | v0.5.0  | `[x] done`  |
 | M5 — Audit Log & Report           | v0.6.0  | `[x] done`  |
-| M6 — Reliability & Correctness    | v0.7.0  | `[ ] open`  |
+| M6 — Reliability & Correctness    | v0.7.0  | `[x] done`  |
 | M7 — Polish & Completions         | v0.8.0  | `[ ] open`  |
 | M8 — Stable Release               | v1.0.0  | `[ ] open`  |
 
@@ -44,13 +44,13 @@ Full scope and function contracts for M0–M5: see [`docs/ARCHIVE_ROADMAP.md`](d
 > Fix what is broken before adding what is missing.
 > A tool that touches package state must produce correct output and reliable operations.
 
-| # | Issue | File | Acceptance criteria |
-|---|-------|------|---------------------|
-| 1 | `snapshot_restore` calls `brew install pkg@ver` — only works for versioned taps, silently fails for most packages | `snapshot.sh` | Limitation documented clearly in output; or reliable restore path implemented if feasible |
-| 2 | `cleanup_bloat` — `local total` declared twice; installed count overwritten by scan row count | `cleanup.sh` | Variable renamed; "Total installed" shows correct value |
-| 3 | `_cleanup_last_access` calls `brew list $pkg` per formula inside `cleanup_scan` loop — O(n) brew invocations | `cleanup.sh` | Replaced with single upfront file map; `cleanup_scan` completes in < 10s for 200 packages |
-| 4 | Tmpfile `$tmp_cur` in `snapshot_diff` and `snapshot_restore` not removed on early exit | `snapshot.sh` | Trap added; tmpfile cleaned on all exit paths |
-| 5 | `upgrade.sh` misplaced in `core/` — touches brew and user I/O, not a pure function | `lib/brewmaster/core/upgrade.sh` | Moved to `lib/brewmaster/upgrade.sh`; all source paths in `bin/brewmaster` updated |
+| # | Issue | File | Acceptance criteria | Status |
+|---|-------|------|---------------------|--------|
+| 1 | `snapshot_restore` calls `brew install pkg@ver` — only works for versioned taps, silently fails for most packages | `snapshot.sh` | Limitation documented clearly in output; or reliable restore path implemented if feasible | `[x] done` |
+| 2 | `cleanup_bloat` — `local total` declared twice; installed count overwritten by scan row count | `cleanup.sh` | Variable renamed; "Total installed" shows correct value | `[x] done` |
+| 3 | `_cleanup_last_access` calls `brew list $pkg` per formula inside `cleanup_scan` loop — O(n) brew invocations | `cleanup.sh` | Replaced with single upfront file map; `cleanup_scan` completes in < 10s for 200 packages | `[x] done` |
+| 4 | Tmpfile `$tmp_cur` in `snapshot_diff` and `snapshot_restore` not removed on early exit | `snapshot.sh` | Trap added; tmpfile cleaned on all exit paths | `[x] done` |
+| 5 | `upgrade.sh` misplaced in `core/` — touches brew and user I/O, not a pure function | `lib/brewmaster/core/upgrade.sh` | Moved to `lib/brewmaster/upgrade.sh`; all source paths in `bin/brewmaster` updated | `[x] done` |
 
 ---
 
