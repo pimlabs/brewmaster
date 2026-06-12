@@ -62,7 +62,7 @@ logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 
 source "$LIB/core/semver.sh"
 source "$LIB/core/outdated.sh"
-source "$LIB/core/upgrade.sh"
+source "$LIB/upgrade.sh"
 source "$LIB/profile.sh"
 
 pass=0; fail=0

@@ -125,6 +125,7 @@ snapshot_diff() {
 
   # Build current state: name -> version
   local tmp_cur; tmp_cur="$(mktemp)"
+  trap 'rm -f "$tmp_cur"' RETURN
   brew list --versions 2>/dev/null | awk '{print $1"\t"$NF}' > "$tmp_cur"
 
   local found=false
@@ -164,7 +165,6 @@ snapshot_diff() {
     fi
   done < "$tmp_cur"
 
-  rm -f "$tmp_cur"
   $found || echo "No changes since snapshot."
 }
 
@@ -179,6 +179,7 @@ snapshot_restore() {
 
   # Build current state
   local tmp_cur; tmp_cur="$(mktemp)"
+  trap 'rm -f "$tmp_cur"' RETURN
   brew list --versions 2>/dev/null | awk '{print $1"\t"$NF}' > "$tmp_cur"
 
   local -a to_install=()
@@ -193,19 +194,25 @@ snapshot_restore() {
     fi
   done < "$snap_path"
 
-  rm -f "$tmp_cur"
-
   if (( ${#to_install[@]} == 0 )); then
     echo "Already matches snapshot. Nothing to restore."
     return 0
   fi
 
+  echo "Note: restore re-installs packages via \`brew install pkg@version\`."
+  echo "This only works if Homebrew has a versioned formula/cask for that"
+  echo "exact version (e.g. node@18, python@3.11, postgresql@14). For most"
+  echo "other packages, Homebrew has no historical version and the install"
+  echo "below will fail — this is a Homebrew limitation, not a bug."
+  echo
   echo "Restore plan (${#to_install[@]} package(s)):"
-  local entry pkg_ver reason
+  local entry pkg_ver reason note
   for entry in "${to_install[@]}"; do
     pkg_ver="${entry%%:*}"
     reason="${entry##*:}"
-    printf '  - %s  [%s]\n' "$pkg_ver" "$reason"
+    note=""
+    brew info "$pkg_ver" >/dev/null 2>&1 || note="  [likely unsupported — no versioned formula]"
+    printf '  - %s  [%s]%s\n' "$pkg_ver" "$reason" "$note"
   done
 
   $DRY_RUN && return 0
@@ -215,7 +222,7 @@ snapshot_restore() {
     pkg_ver="${entry%%:*}"
     echo "==> brew install $pkg_ver"
     if ! brew install "$pkg_ver" 2>&1; then
-      echo "Warning: failed to install $pkg_ver" >&2
+      echo "Warning: $pkg_ver not available — Homebrew has no versioned formula for this version, cannot restore." >&2
       fail=$((fail+1))
     fi
   done

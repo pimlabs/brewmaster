@@ -130,7 +130,7 @@ git_line="$(echo "$list_out"  | grep -n '\bgit\b' | grep -v 'PACKAGE\|----' | he
   && ok || bad "list_risky: node (high risk) should appear before git (low risk)"
 
 # --- 12. Upgrade flow: CHECK_DEPS=true, node@major skipped (score >= RISK_THRESHOLD) ---
-source "$LIB/core/upgrade.sh"
+source "$LIB/upgrade.sh"
 
 MOCK_BIN2="$(mktemp -d)"
 cat > "$MOCK_BIN2/brew" <<'BREW2EOF'
