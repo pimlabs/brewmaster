@@ -102,7 +102,7 @@ source "$LIB/audit.sh"
 source "$LIB/depgraph.sh"
 source "$LIB/snapshot.sh"
 source "$LIB/cleanup.sh"
-source "$LIB/core/upgrade.sh"
+source "$LIB/upgrade.sh"
 
 pass=0; fail=0
 ok()  { pass=$((pass+1)); }

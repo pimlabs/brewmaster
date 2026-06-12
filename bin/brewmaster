@@ -243,7 +243,7 @@ LIB_DIR="${BREWMASTER_LIB:-$SCRIPT_DIR/../lib/brewmaster}"
 
 source "$LIB_DIR/core/semver.sh"
 source "$LIB_DIR/core/outdated.sh"
-source "$LIB_DIR/core/upgrade.sh"
+source "$LIB_DIR/upgrade.sh"
 source "$LIB_DIR/audit.sh"
 source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"

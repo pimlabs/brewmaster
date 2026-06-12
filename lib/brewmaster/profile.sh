@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # brewmaster: named upgrade profiles (TOML config).
-# Sourced by bin/brewmaster after depgraph.sh (uses _in_list from core/upgrade.sh).
+# Sourced by bin/brewmaster after depgraph.sh (uses _in_list from upgrade.sh).
 # Globals read:  PROFILE_CONFIG
 # Globals set by profile_load: PROFILE_INCLUDE PROFILE_EXCLUDE
 #                PROFILE_REQUIRE_CONFIRM PROFILE_MAX_RISK PROFILE_LEVEL
