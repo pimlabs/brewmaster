@@ -1,0 +1,316 @@
+.TH BREWMASTER 1 "2026-06-14" "brewmaster 0.6.1" "User Commands"
+.SH NAME
+brewmaster \- selective Homebrew package upgrades by semver bump level
+.SH SYNOPSIS
+.B brewmaster
+[\fBupgrade\fR] [\fIpackages...\fR] [\fIoptions\fR]
+.br
+.B brewmaster snapshot
+{\fBsave\fR|\fBlist\fR|\fBdiff\fR|\fBrestore\fR|\fBdelete\fR}
+[\fIref\fR] [\fIoptions\fR]
+.br
+.B brewmaster deps show
+[\fIpackage\fR]
+.br
+.B brewmaster profile
+{\fBlist\fR|\fBcreate\fR|\fBedit\fR|\fBdiff\fR|\fBvalidate\fR} [\fIargs\fR]
+.br
+.B brewmaster cleanup
+[\fB\-\-dry\-run\fR|\fB\-\-interactive\fR|\fB\-\-force\fR]
+.br
+.B brewmaster why
+\fIpackage\fR
+.br
+.B brewmaster bloat
+.br
+.B brewmaster log
+[\fIoptions\fR]
+.br
+.B brewmaster report
+.SH DESCRIPTION
+.B brewmaster
+upgrades only what you decide \(em patch, minor, or major \(em nothing more.
+It classifies every outdated package by its semantic-versioning bump, gates
+the upgrade by the requested level, and understands
+.I why
+a package exists on your machine before touching it.
+.PP
+brewmaster is deterministic: no AI, no guessing, no network calls beyond
+.BR brew (1)
+itself.
+.SH COMMANDS
+.SS Upgrade (default command)
+.TP
+.BI upgrade " [packages...]"
+Selective upgrade by semver bump level. Pass package names to limit the
+upgrade to those, e.g.
+.IR "brewmaster upgrade git node --minor" .
+.SS Dependency risk
+.TP
+.BI "deps show " "[package]"
+Show dependency risk for one package, or list all outdated packages sorted
+by risk score.
+.SS Snapshot & rollback
+.TP
+.B snapshot save
+Save current Homebrew state to a snapshot.
+.TP
+.B snapshot list
+List all saved snapshots.
+.TP
+.BI "snapshot diff " "[index|path]"
+Show packages changed since a snapshot.
+.TP
+.BI "snapshot restore " "[index|path]"
+Restore packages to a snapshot state.
+.TP
+.BI "snapshot delete " "[index|path]"
+Delete a snapshot.
+.SS Profiles
+.TP
+.B profile list
+List configured profiles.
+.TP
+.B profile create
+Interactive wizard to add a new profile.
+.TP
+.BI "profile edit " "[name]"
+Open
+.I profiles.toml
+in
+.BR $EDITOR .
+.TP
+.BI "profile diff " "a b"
+Compare include lists between two profiles.
+.TP
+.B profile validate
+Check
+.I profiles.toml
+for errors.
+.SS Cleanup & intent
+.TP
+.B cleanup
+Report orphan, stale, and pinned-old formulae (read-only by default).
+.TP
+.BI why " package"
+Explain why a formula is installed: dependents, install date, and a
+last-access heuristic.
+.TP
+.B bloat
+Summary of installed package counts and estimated disk reclaim from
+cleanup candidates.
+.SS Audit log & reports
+.TP
+.B log
+Show recent audit log entries (last 20 by default).
+.TP
+.B report
+Machine health summary: upgrades, cleanups, snapshots, orphans, and risk
+trend.
+.SH OPTIONS
+.SS Level (mutually exclusive; default: patch)
+.TP
+.B \-\-patch
+Apply patch bumps only (default).
+.TP
+.B \-\-minor
+Apply minor bumps only.
+.TP
+.B \-\-major
+Apply major bumps only.
+.TP
+.BI \-\-level= patch|minor|major
+Same as the flags above (also accepted as
+.IR "--level minor" ).
+.SS Upgrade flags
+.TP
+.B \-\-or\-lower
+Make the level inclusive (e.g.
+.B \-\-minor
+=> minor+patch;
+.B \-\-major
+=> all).
+.TP
+.B \-\-allow\-date
+Treat date versions
+.RI ( YYYY.MM.DD / YYYY-MM-DD ...)
+as semver-like. Default: off.
+.TP
+.BR \-n ", " \-\-dry\-run
+Show the plan without executing.
+.TP
+.B \-\-formulae
+Formulae only (skip casks).
+.TP
+.B \-\-casks
+Casks only (skip formulae).
+.TP
+.BI \-\-profile= NAME
+Filter and level from a named profile (see
+.B FILES
+for
+.IR profiles.toml ).
+.TP
+.BR \-i ", " \-\-interactive
+fzf multi-select among upgrade candidates (requires
+.BR fzf ).
+.SS Dependency risk flags (apply to upgrade)
+.TP
+.B \-\-check\-deps
+Risk-score each upgrade candidate; skip HIGH-risk, warn on MEDIUM.
+.TP
+.BI \-\-risk\-threshold= N
+HIGH-risk cutoff (default: 7; range 0\-10).
+.TP
+.BR \-y ", " \-\-yes
+Auto-confirm MEDIUM-risk packages (no prompt).
+.SS Snapshot flags
+.TP
+.BI \-\-label= TEXT
+Label for
+.BR "snapshot save" .
+.TP
+.BR \-n ", " \-\-dry\-run
+Show plan without executing, for
+.BR "snapshot restore" .
+.TP
+.B \-\-force
+Skip the y/N confirmation for
+.BR "snapshot delete" .
+.SS Cleanup flags
+.TP
+.BR \-n ", " \-\-dry\-run
+Read-only report (also the default with no flags).
+.TP
+.BR \-i ", " \-\-interactive
+fzf multi-select packages to remove (requires
+.BR fzf ).
+.TP
+.B \-\-force
+Auto-remove orphans with cleanup score >= 7, no confirmation.
+.SS Log flags
+.TP
+.BI \-\-package= NAME
+Filter entries by package name.
+.TP
+.BI \-\-action= ACTION
+Filter by action:
+.BR upgrade ", " cleanup ", or " snapshot .
+.TP
+.BI \-\-since= Nd|Nh|Nw
+Only entries within this time window (default unit: days).
+.TP
+.BI \-\-format= table|json|csv
+Output format (default: table).
+.SS General
+.TP
+.BR \-v ", " \-\-verbose
+More detailed output.
+.TP
+.BR \-V ", " \-\-version
+Print version and exit.
+.TP
+.BR \-h ", " \-\-help
+Show the full reference (there is no per-subcommand
+.BR \-\-help ).
+.SH EXAMPLES
+.TP
+.B brewmaster
+Apply patch-level upgrades (the default).
+.TP
+.B brewmaster --minor --or-lower
+Apply minor and patch upgrades.
+.TP
+.B brewmaster upgrade git node --minor
+Limit the upgrade to specific packages.
+.TP
+.B brewmaster snapshot save --label="before-work-upgrade"
+Save the current package state before a risky upgrade.
+.TP
+.B brewmaster snapshot restore 1 --dry-run
+Preview what restoring the most recent snapshot would do.
+.TP
+.B brewmaster cleanup --interactive
+Pick orphaned packages to remove via fzf.
+.TP
+.B brewmaster why git
+Explain why
+.B git
+is installed.
+.TP
+.B brewmaster log --action=cleanup --since=30d
+Show cleanup actions from the last 30 days.
+.SH NOTES
+.IP \(bu 2
+.BR \-\-patch / \-\-minor / \-\-major
+and
+.B \-\-level=X
+are equivalent; pick whichever reads better in scripts vs interactively.
+.IP \(bu 2
+.B \-\-force
+has different effects per command:
+.B "snapshot delete"
+skips a y/N confirmation;
+.B cleanup
+auto-removes high-confidence orphans.
+.IP \(bu 2
+Two different 0\-10 scores, opposite directions: the
+.I risk score
+.RB ( "deps" ", " \-\-check\-deps )
+\(em higher means more dangerous to upgrade (HIGH >= threshold, default 7;
+MEDIUM 4\-6; LOW 0\-3) \(em and the
+.I cleanup score
+.RB ( "cleanup" ", " why )
+\(em higher means safer to remove.
+.IP \(bu 2
+Pre-release
+.RI ( -rc.1 )
+and
+.RI ( +build )
+metadata are ignored during comparison (only major.minor.patch).
+.IP \(bu 2
+Date/timestamp versions are skipped unless
+.B \-\-allow\-date
+is used.
+.SH FILES
+.TP
+.I ~/.local/share/brewmaster/snapshots/
+Saved snapshots (respects
+.BR XDG_DATA_HOME ).
+.TP
+.I ~/.local/share/brewmaster/audit.log
+NDJSON audit log of upgrades, cleanups, and snapshots (respects
+.BR XDG_DATA_HOME ).
+.TP
+.I ~/.config/brewmaster/profiles.toml
+Named upgrade profiles (respects
+.BR XDG_CONFIG_HOME ).
+.SH ENVIRONMENT
+.TP
+.B XDG_DATA_HOME
+Overrides the base directory for snapshots and the audit log. Default:
+.IR ~/.local/share .
+.TP
+.B XDG_CONFIG_HOME
+Overrides the base directory for
+.IR profiles.toml .
+Default:
+.IR ~/.config .
+.TP
+.B EDITOR
+Editor used by
+.BR "profile edit" .
+Falls back to
+.BR nano .
+.SH EXIT STATUS
+.B 0
+on success;
+.B 1
+if any upgrade, restore, or install step fails, or on usage errors.
+.SH SEE ALSO
+.BR brew (1)
+.SH BUGS
+Report issues at
+.UR https://github.com/pimlabs/brewmaster/issues
+the brewmaster issue tracker
+.UE .
