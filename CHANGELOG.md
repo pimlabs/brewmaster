@@ -7,6 +7,27 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.7.0] — 2026-06-14
+
+### Fixed (M6)
+
+- `snapshot_diff`/`snapshot_restore`: scratch tmpfile is now removed on all
+  exit paths via a `RETURN` trap, not just the normal fall-through path
+- `cleanup_bloat`: fixed a variable shadowing bug where the scan row count
+  overwrote the total installed package count
+- `_cleanup_last_access`: replaced per-formula `brew list` calls inside the
+  scan loop with a single upfront file map (O(n) → O(1) brew invocations)
+
+### Changed (M6)
+
+- `snapshot_restore` now documents the versioned-install limitation up front:
+  entries with no matching `brew info pkg@version` are flagged
+  `[likely unsupported]` in the restore plan (including under `--dry-run`),
+  and failures get a specific warning instead of a generic one
+- `lib/brewmaster/core/upgrade.sh` moved to `lib/brewmaster/upgrade.sh` —
+  `run_upgrade` performs brew invocations and interactive I/O, which doesn't
+  belong in the pure-function `core/` convention
+
 ## [0.6.1] — 2026-06-11
 
 ### Changed
