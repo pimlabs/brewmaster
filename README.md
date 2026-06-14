@@ -14,6 +14,26 @@ brew tap pimlabs/brewmaster
 brew install brewmaster
 ```
 
+## Shell Completions
+
+The tap formula doesn't install these yet, so set them up manually for now:
+
+```bash
+# bash
+source completions/brewmaster.bash
+# or: cp completions/brewmaster.bash "$(brew --prefix)/etc/bash_completion.d/brewmaster"
+
+# zsh
+cp completions/brewmaster.zsh "$(brew --prefix)/share/zsh/site-functions/_brewmaster"
+# then start a new shell (or run `compinit`)
+
+# fish
+cp completions/brewmaster.fish (brew --prefix)/share/fish/vendor_completions.d/brewmaster.fish
+```
+
+A man page is available at [`docs/brewmaster.1`](./docs/brewmaster.1) —
+view it with `man ./docs/brewmaster.1`.
+
 ## Why brewmaster
 
 Every other upgrade tool asks: *"What packages are outdated?"*
