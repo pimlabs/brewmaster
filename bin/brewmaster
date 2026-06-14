@@ -2,7 +2,7 @@
 [ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
 set -euo pipefail
 
-BREWMASTER_VERSION="0.8.0"
+BREWMASTER_VERSION="0.8.1"
 
 # Global configuration (overridden by CLI flags below).
 LEVEL="patch"        # patch | minor | major  (exact category; exclusive by default)
@@ -33,8 +33,91 @@ AUDIT_ACTION=""
 AUDIT_SINCE=""
 AUDIT_FORMAT="table"
 
+# _help_style_vars — set B/R/U/UR/D to tput sequences, or "" when styling
+# should be suppressed (non-TTY, NO_COLOR set, or no tput available).
+# Args:   none
+# Stdout: none (sets globals B R U UR D)
+# Return: 0
+_help_style_vars() {
+  B="" R="" U="" UR="" D=""
+  [ -t 1 ] || return 0
+  [ -n "${NO_COLOR:-}" ] && return 0
+  command -v tput >/dev/null 2>&1 || return 0
+  B="$(tput bold 2>/dev/null || true)"
+  R="$(tput sgr0 2>/dev/null || true)"
+  U="$(tput smul 2>/dev/null || true)"
+  UR="$(tput rmul 2>/dev/null || true)"
+  D="$(tput dim 2>/dev/null || true)"
+}
+
+# _help_style_name — bold a definition-line name-token, underlining any
+# <...>/[...] placeholder group or a trailing =NAME|TEXT|N|ACTION metavar.
+# Args:   $1 name-token text
+# Stdout: styled name-token
+# Return: 0
+_help_style_name() {
+  local name="$1" pre ph post styled_post
+  if [[ "$name" =~ ^(.*)(\<[^\>]+\>)(.*)$ ]] || [[ "$name" =~ ^(.*)(\[[^]]+\])(.*)$ ]]; then
+    pre="${BASH_REMATCH[1]}"
+    ph="${BASH_REMATCH[2]}"
+    post="${BASH_REMATCH[3]}"
+    styled_post=""
+    [ -n "$post" ] && styled_post="${B}${post}${R}"
+    printf '%s%s%s%s%s' "$(_help_style_name "$pre")" "$U" "$ph" "$UR" "$styled_post"
+    return 0
+  fi
+  if [[ "$name" =~ ^(.*=)(NAME|TEXT|N|ACTION)$ ]]; then
+    printf '%s%s%s%s' "${B}${BASH_REMATCH[1]}${R}" "$U" "${BASH_REMATCH[2]}" "$UR"
+    return 0
+  fi
+  [ -n "$name" ] && printf '%s%s%s' "$B" "$name" "$R"
+  return 0
+}
+
+# _help_style_desc — dim narrow secondary-annotation parentheticals
+# ("(default...)", "(also: ...)", "(requires fzf)") within a description.
+# Args:   $1 description text
+# Stdout: styled description
+# Return: 0
+_help_style_desc() {
+  local desc="$1" out="" m
+  while [[ "$desc" =~ \((default[^\)]*|also:[^\)]*|requires\ fzf)\) ]]; do
+    m="${BASH_REMATCH[0]}"
+    out="${out}${desc%%"$m"*}${D}${m}${R}"
+    desc="${desc#*"$m"}"
+  done
+  printf '%s%s' "$out" "$desc"
+}
+
+# usage — print the --help reference, with bold/underline/dim styling
+# applied when stdout is a TTY (suppressed for NO_COLOR, non-TTY, or no tput).
+# Args:   none
+# Stdout: help text
+# Return: 0
 usage() {
-  cat <<'USAGE'
+  _help_style_vars
+  local line
+  while IFS= read -r line; do
+    case "$line" in
+      "")
+        printf '\n' ;;
+      "Usage:"*)
+        printf '%sUsage:%s%s\n' "$B" "$R" "${line#Usage:}" ;;
+      "Notes:")
+        printf '%sNotes:%s\n' "$B" "$R" ;;
+      *)
+        if [[ "$line" =~ ^([A-Z][A-Z\ \&]*)(.*)$ ]] && [ "${#BASH_REMATCH[1]}" -ge 2 ]; then
+          printf '%s%s%s%s\n' "$B" "${BASH_REMATCH[1]}" "$R" "${BASH_REMATCH[2]}"
+        elif [[ "$line" =~ ^(\ \ |\ \ \ \ )([^\ ]+(\ [^\ ]+)*)(\ \ +)(.*)$ ]]; then
+          printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$(_help_style_name "${BASH_REMATCH[2]}")" "${BASH_REMATCH[4]}" "$(_help_style_desc "${BASH_REMATCH[5]}")"
+        elif [[ "$line" =~ ^(\ \ )([^\ ].*:)$ ]]; then
+          printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$B" "${BASH_REMATCH[2]}" "$R"
+        else
+          printf '%s\n' "$line"
+        fi
+        ;;
+    esac
+  done <<'USAGE'
 Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster snapshot <save|list|diff|restore|delete> [ref] [options]
        brewmaster deps show [package]

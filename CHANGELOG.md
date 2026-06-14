@@ -7,6 +7,16 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.8.1] — 2026-06-14
+
+### Changed
+
+- `--help` output now uses bold/underline/dim styling (via `tput`) for
+  section headers, command/flag names, and placeholders, with secondary
+  `(default: ...)`/`(also: ...)`/`(requires fzf)` annotations dimmed —
+  degrades to byte-identical plain text when `NO_COLOR` is set, stdout is
+  not a TTY, or `tput` is unavailable
+
 ## [0.8.0] — 2026-06-14
 
 ### Added (M7)
