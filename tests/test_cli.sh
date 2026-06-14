@@ -63,5 +63,12 @@ out="$(run upgrade --patch 2>/dev/null)"; rc=$?
 echo "$out" | grep -q 'upgraded foo' && ok || bad "execution should upgrade foo"
 [ "$rc" -eq 0 ]                       && ok || bad "execution should exit 0"
 
+# 9. --help degrades to plain text (byte-identical) when NO_COLOR is set or
+#    output is piped (non-TTY), regardless of styling added for TTY output
+diff <(NO_COLOR=1 "$BM" --help) "$DIR/fixtures/help.txt" >/dev/null \
+  && ok || bad "--help with NO_COLOR should match tests/fixtures/help.txt"
+diff <("$BM" --help | cat) "$DIR/fixtures/help.txt" >/dev/null \
+  && ok || bad "--help piped (non-TTY) should match tests/fixtures/help.txt"
+
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))
