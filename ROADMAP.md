@@ -32,7 +32,7 @@ See [PHILOSOPHY.md](PHILOSOPHY.md) for design rationale and the test for evaluat
 | M4 — Cleanup & Intent             | v0.5.0  | `[x] done`  |
 | M5 — Audit Log & Report           | v0.6.0  | `[x] done`  |
 | M6 — Reliability & Correctness    | v0.7.0  | `[x] done`  |
-| M7 — Polish & Completions         | v0.8.0  | `[ ] open`  |
+| M7 — Polish & Completions         | v0.8.0  | `[x] done`  |
 | M8 — Stable Release               | v1.0.0  | `[ ] open`  |
 
 Full scope and function contracts for M0–M5: see [`docs/ARCHIVE_ROADMAP.md`](docs/ARCHIVE_ROADMAP.md).
@@ -61,8 +61,8 @@ Full scope and function contracts for M0–M5: see [`docs/ARCHIVE_ROADMAP.md`](d
 | # | Feature | Notes | Status |
 |---|---------|-------|--------|
 | 1 | Progress indicator in `run_upgrade` | Match `\r\033[K[i/total]` pattern already in `cleanup_scan` | `[x] done` |
-| 2 | Shell completions — bash, zsh, fish | `completions/brewmaster.bash`, `completions/brewmaster.zsh`, `completions/brewmaster.fish` | `[ ] open` |
-| 3 | Man page | `docs/brewmaster.1` — installed via Homebrew formula | `[ ] open` |
+| 2 | Shell completions — bash, zsh, fish | `completions/brewmaster.bash`, `completions/brewmaster.zsh`, `completions/brewmaster.fish` | `[x] done` |
+| 3 | Man page | `docs/brewmaster.1` — install via Homebrew formula pending in tap repo | `[x] done` |
 | 4 | Empty array pattern cleanup | Replace `"${arr[@]:-}"` workarounds with `(( ${#arr[@]} == 0 ))` across all files | `[x] done` |
 | 5 | Error handling audit | Review all `\|\| return 1` paths in `semver.sh` and `audit.sh`; no silent failures | `[x] done — all return-1 paths print or propagate an error message` |
 
