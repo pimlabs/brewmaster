@@ -50,7 +50,7 @@ type(scope): short description
 
 | Scope | Area |
 |-------|------|
-| `core` | `lib/brewmaster/core/` — semver, outdated, upgrade |
+| `core` | `lib/brewmaster/core/` — semver, outdated |
 | `semver` | Semver-specific logic |
 | `snapshot` | `lib/brewmaster/snapshot.sh` |
 | `depgraph` | `lib/brewmaster/depgraph.sh` |
