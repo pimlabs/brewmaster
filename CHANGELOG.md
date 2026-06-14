@@ -7,6 +7,26 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.8.0] — 2026-06-14
+
+### Added (M7)
+
+- `run_upgrade` now prints a `[i/total]` progress counter for each package,
+  matching the `\r\033[K` pattern already used in `cleanup_scan`
+- Shell completions for bash, zsh, and fish (`completions/brewmaster.{bash,zsh,fish}`)
+  — covers every subcommand, sub-subcommand, and flag, with dynamic completion
+  for package names, profile names, and enum-valued flags (`--level`,
+  `--action`, `--format`)
+- `docs/brewmaster.1` man page, reusing the wording from `bin/brewmaster`'s
+  `--help` output for COMMANDS, OPTIONS, and NOTES
+
+### Changed (M7)
+
+- Replaced `"${arr[@]:-}"` empty-array workarounds with
+  `(( ${#arr[@]} == 0 ))` length checks in `upgrade.sh` and `profile.sh`
+- Audited all `|| return 1` error paths in `semver.sh` and `audit.sh` —
+  confirmed every one prints or propagates an error message
+
 ## [0.7.0] — 2026-06-14
 
 ### Fixed (M6)
