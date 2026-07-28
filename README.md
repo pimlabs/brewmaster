@@ -10,7 +10,7 @@ It understands *why* a package exists on your machine before touching it.
 ## Install
 
 ```bash
-brew tap pimlabs/brewmaster
+brew tap pimlabs/tap
 brew install brewmaster
 ```
 

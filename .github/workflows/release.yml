@@ -46,7 +46,7 @@ jobs:
           set -euo pipefail
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
-          TAP="pimlabs/homebrew-brewmaster"
+          TAP="pimlabs/homebrew-tap"
           PATH_="Formula/brewmaster.rb"
           URL="https://github.com/${{ github.repository }}/archive/refs/tags/${TAG}.tar.gz"
 
