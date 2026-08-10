@@ -53,12 +53,12 @@
       only (no CLI dispatch), walk `_help_source_text()`'s line shapes,
       emit troff with `.SH NAME`, `.SH SYNOPSIS`, `.SH DESCRIPTION`,
       `.SH COMMANDS`, `.SH FILES`, `.SH EXAMPLES`
-- [ ] 5.2 Run `docs/gen-man.sh > docs/brewmaster.1`, confirm it renders
+- [x] 5.2 Run `docs/gen-man.sh > docs/brewmaster.1`, confirm it renders
       cleanly via `man ./docs/brewmaster.1` with no troff errors, and that
       COMMANDS reflects current v0.9.x+ commands (profiles, audit
       log/report, cleanup — the content this milestone's research found
       missing from the old hand-written page)
-- [ ] 5.3 Commit the regenerated `docs/brewmaster.1`
+- [x] 5.3 Commit the regenerated `docs/brewmaster.1`
 
 ## 6. Drift enforcement
 
