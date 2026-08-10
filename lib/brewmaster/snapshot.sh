@@ -93,8 +93,7 @@ snapshot_list() {
     return 0
   fi
 
-  printf '%-6s  %-17s  %-24s  %s\n' "INDEX" "TIMESTAMP" "LABEL" "PACKAGES"
-  printf '%-6s  %-17s  %-24s  %s\n' "-----" "---------" "-----" "--------"
+  ui_table_header 6 "INDEX" 17 "TIMESTAMP" 24 "LABEL" "" "PACKAGES"
 
   local i=1 f base meta label count ts
   for f in "${files[@]}"; do
@@ -109,9 +108,23 @@ snapshot_list() {
       label="$(jq -r '.label // ""' "$meta" 2>/dev/null)"
       count="$(jq -r '.package_count // "?"' "$meta" 2>/dev/null)"
     fi
-    printf '%-6s  %-17s  %-24s  %s\n' "$i" "$ts" "${label:-(none)}" "$count"
+    ui_table_row 6 "$i" 17 "$ts" 24 "${label:-(none)}" "" "$count"
     i=$((i+1))
   done
+}
+
+# _snapshot_tag_color "$tag" — map a snapshot_diff tag to a semantic
+# color: NEW = safe/added (green), REMOVED = gone (red), anything else
+# (UPGRADE/DOWNGRADE/CHANGED) = worth a look (yellow).
+# Args:   $1 tag (NEW|REMOVED|UPGRADE|DOWNGRADE|CHANGED)
+# Stdout: COLOR_OK, COLOR_HIGH, or COLOR_WARN
+# Return: 0
+_snapshot_tag_color() {
+  case "$1" in
+    NEW)     echo "$COLOR_OK" ;;
+    REMOVED) echo "$COLOR_HIGH" ;;
+    *)       echo "$COLOR_WARN" ;;
+  esac
 }
 
 # snapshot_diff — show packages that changed since a snapshot.
@@ -135,7 +148,8 @@ snapshot_diff() {
   while IFS=$'\t' read -r pkg snap_ver; do
     cur_ver="$(grep -m1 "^${pkg}	" "$tmp_cur" 2>/dev/null | cut -f2 || true)"
     if [[ -z "$cur_ver" ]]; then
-      printf '%-30s  %-14s  ->  %-14s  [%s]\n' "$pkg" "$snap_ver" "(missing)" "REMOVED"
+      printf '%-30s  %-14s  ->  %-14s  [%s]\n' "$pkg" "$snap_ver" "(missing)" \
+        "$(ui_colorize "" "$(_snapshot_tag_color REMOVED)" "REMOVED")"
       found=true
     elif [[ "$cur_ver" != "$snap_ver" ]]; then
       # Compare using to_semver_3 if available, else lexicographic
@@ -152,7 +166,8 @@ snapshot_diff() {
       else
         tag="CHANGED"
       fi
-      printf '%-30s  %-14s  ->  %-14s  [%s]\n' "$pkg" "$snap_ver" "$cur_ver" "$tag"
+      printf '%-30s  %-14s  ->  %-14s  [%s]\n' "$pkg" "$snap_ver" "$cur_ver" \
+        "$(ui_colorize "" "$(_snapshot_tag_color "$tag")" "$tag")"
       found=true
     fi
   done < "$snap_path"
@@ -160,7 +175,8 @@ snapshot_diff() {
   # Check packages added since snapshot (NEW)
   while IFS=$'\t' read -r pkg cur_ver; do
     if ! grep -q "^${pkg}	" "$snap_path" 2>/dev/null; then
-      printf '%-30s  %-14s  ->  %-14s  [%s]\n' "$pkg" "(none)" "$cur_ver" "NEW"
+      printf '%-30s  %-14s  ->  %-14s  [%s]\n' "$pkg" "(none)" "$cur_ver" \
+        "$(ui_colorize "" "$(_snapshot_tag_color NEW)" "NEW")"
       found=true
     fi
   done < "$tmp_cur"

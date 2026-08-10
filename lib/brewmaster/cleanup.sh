@@ -114,6 +114,22 @@ cleanup_score_from_facts() {
   echo "$score"
 }
 
+# _cleanup_score_color "$score" — map a 0-10 cleanup score to a semantic
+# color constant. Direction is inverted from depgraph's risk color: a
+# HIGH cleanup score means safer to remove (green), not dangerous (red).
+# Same 7/4 bands already used elsewhere in this file (cleanup_main's
+# --force gate: score>=7).
+# Args:   $1 score (integer 0-10)
+# Stdout: COLOR_OK, COLOR_WARN, or COLOR_HIGH
+# Return: 0
+_cleanup_score_color() {
+  local score="$1"
+  if (( score >= 7 )); then echo "$COLOR_OK"
+  elif (( score >= 4 )); then echo "$COLOR_WARN"
+  else echo "$COLOR_HIGH"
+  fi
+}
+
 # cleanup_score "$pkg" — public single-arg wrapper (ROADMAP contract).
 # For standalone/single-package use (e.g. `why`, tests). Calls _cleanup_facts
 # itself — fine because it's not used in the per-formula scan loop.
@@ -143,7 +159,7 @@ cleanup_scan() {
   local name f vcount pinned on_request safe install_epoch last_epoch days score category reason
   for name in "${names[@]}"; do
     i=$((i+1))
-    printf '\r\033[K[%d/%d] %s' "$i" "$total" "$name" >&2
+    ui_progress "$i" "$total" "$name"
     f="$(_cleanup_facts "$name")"
     IFS=$'\t' read -r vcount pinned on_request safe install_epoch last_epoch <<<"$f"
     score="$(cleanup_score_from_facts "$vcount" "$pinned" "$on_request" "$safe" "$install_epoch" "$last_epoch")"
@@ -160,7 +176,7 @@ cleanup_scan() {
     fi
     printf '%s|%s|%s|%s\n' "$name" "$category" "$score" "$reason"
   done
-  (( total > 0 )) && printf '\r\033[K' >&2
+  (( total > 0 )) && ui_progress_clear
 }
 
 # cleanup_execute "$pkg" — brew uninstall "$pkg"; respects $DRY_RUN.
@@ -190,13 +206,14 @@ cleanup_report() {
     echo "Nothing to clean up."
     return 0
   fi
-  printf '%-12s  %-24s  %-12s  %-5s  %s\n' "CATEGORY" "PACKAGE" "INSTALLED" "SCORE" "REASON"
-  printf '%-12s  %-24s  %-12s  %-5s  %s\n' "--------" "-------" "---------" "-----" "------"
-  local name category score reason installed
+  ui_table_header 12 "CATEGORY" 24 "PACKAGE" 12 "INSTALLED" 5 "SCORE" "" "REASON"
+  local name category score reason installed color score_field
   while IFS='|' read -r name category score reason; do
     [[ -z "$name" ]] && continue
     installed="$(_cleanup_installed_date "$name")"
-    printf '%-12s  %-24s  %-12s  %-5s  %s\n' "$category" "$name" "$installed" "$score" "$reason"
+    color="$(_cleanup_score_color "$score")"
+    score_field="$(ui_colorize 5 "$color" "$score")"
+    ui_table_row 12 "$category" 24 "$name" 12 "$installed" "" "$score_field" "" "$reason"
   done < <(printf '%s\n' "$rows" | sort -t'|' -k3 -rn)
 }
 
@@ -317,10 +334,10 @@ cleanup_main() {
     while IFS='|' read -r name category score reason; do
       [[ -z "$name" ]] && continue
       i=$((i+1))
-      printf '\r\033[K[%d/%d] %s' "$i" "$total" "$name" >&2
+      ui_progress "$i" "$total" "$name"
       why "$name" > "$tmpdir/${name}.why" 2>/dev/null || true
     done <<<"$rows"
-    printf '\r\033[K' >&2
+    ui_progress_clear
 
     local selected
     selected="$(printf '%s\n' "$rows" | fzf --multi --ansi \
@@ -353,7 +370,7 @@ cleanup_main() {
 
   cleanup_report "$rows"
   echo
-  echo "Run with --interactive to select packages to remove, or --force to auto-remove orphans (score >= 7)."
+  ui_summary "Run with --interactive to select packages to remove, or --force to auto-remove orphans (score >= 7)."
 }
 
 # cleanup_bloat — print a machine package summary: totals, category counts, and
@@ -379,22 +396,22 @@ cleanup_bloat() {
   while IFS='|' read -r name category score reason; do
     [[ -z "$name" ]] && continue
     i=$((i+1))
-    printf '\r\033[K[%d/%d] %s' "$i" "$total" "$name" >&2
+    ui_progress "$i" "$total" "$name"
     cellar="$CLEANUP_CELLAR_ROOT/$name"
     if [[ -n "$cellar" && -d "$cellar" ]]; then
       size="$(du -sk "$cellar" 2>/dev/null | awk '{print $1}')"
       kb=$((kb + size))
     fi
   done <<<"$rows"
-  (( total > 0 )) && printf '\r\033[K' >&2
+  (( total > 0 )) && ui_progress_clear
   local mb=$((kb / 1024))
 
-  echo "Machine package report"
+  ui_section "Machine package report"
   printf '  Total installed:   %d\n' "$total"
   printf '  Orphans:           %3d   (could be removed)\n' "$orphans"
   printf '  Stale (>90d):      %3d   (last-access heuristic)\n' "$stale"
   printf '  Pinned old:        %3d\n' "$pinned"
   printf '  Est. disk reclaim: ~%d MB\n' "$mb"
   echo
-  echo "Run: brewmaster cleanup --dry-run  to review candidates"
+  ui_summary "Run: brewmaster cleanup --dry-run  to review candidates"
 }

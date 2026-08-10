@@ -330,12 +330,15 @@ LIB_DIR="${BREWMASTER_LIB:-$SCRIPT_DIR/../lib/brewmaster}"
 
 source "$LIB_DIR/core/semver.sh"
 source "$LIB_DIR/core/outdated.sh"
+source "$LIB_DIR/core/ui.sh"
 source "$LIB_DIR/upgrade.sh"
 source "$LIB_DIR/audit.sh"
 source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"
 source "$LIB_DIR/profile.sh"
 source "$LIB_DIR/cleanup.sh"
+
+ui_color_init
 
 if [[ -n "$PROFILE_NAME" ]]; then
   profile_load "$PROFILE_NAME" || exit 1

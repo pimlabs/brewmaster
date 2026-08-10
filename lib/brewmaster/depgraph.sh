@@ -97,6 +97,20 @@ depgraph_risk_score() {
   echo "$score"
 }
 
+# _depgraph_risk_color "$score" — map a 0-10 risk score to a semantic
+# color constant using the thresholds already used to gate upgrades:
+# HIGH >= RISK_THRESHOLD (default 7), MEDIUM 4-6, LOW 0-3.
+# Args:   $1 score (integer 0-10)
+# Stdout: COLOR_HIGH, COLOR_WARN, or COLOR_OK
+# Return: 0
+_depgraph_risk_color() {
+  local score="$1"
+  if (( score >= RISK_THRESHOLD )); then echo "$COLOR_HIGH"
+  elif (( score >= 4 )); then echo "$COLOR_WARN"
+  else echo "$COLOR_OK"
+  fi
+}
+
 # depgraph_report — print a human-readable dependency + risk summary for one package.
 # Args:   $1  package name
 #         $2  bump kind (optional)
@@ -109,6 +123,8 @@ depgraph_report() {
   local arr; arr="$(_depgraph_query "$pkg" "")"
   local count; count="$(echo "$arr" | jq 'length')"
   local score; score="$(depgraph_risk_score "$pkg" "$kind")"
+  local color; color="$(_depgraph_risk_color "$score")"
+  local score_str; score_str="$(ui_colorize "" "$color" "${score}/10")"
 
   echo "Package: $pkg"
   if (( count == 0 )); then
@@ -120,9 +136,9 @@ depgraph_report() {
     done
   fi
   if [[ -n "$kind" ]]; then
-    printf '  Risk score: %d/10  (kind=%s)\n' "$score" "$kind"
+    printf '  Risk score: %s  (kind=%s)\n' "$score_str" "$kind"
   else
-    printf '  Risk score: %d/10  (base; bump type not specified)\n' "$score"
+    printf '  Risk score: %s  (base; bump type not specified)\n' "$score_str"
   fi
 }
 
@@ -155,10 +171,12 @@ depgraph_list_risky() {
     return 0
   fi
 
-  printf '%-5s  %-28s  %-8s  %s\n' "RISK" "PACKAGE" "KIND" "DEPS"
-  printf '%-5s  %-28s  %-8s  %s\n' "----" "-------" "----" "----"
+  ui_table_header 5 "RISK" 28 "PACKAGE" 8 "KIND" "" "DEPS"
   printf '%s\n' "${entries[@]}" | sort -t$'\t' -k1 -rn | \
     while IFS=$'\t' read -r score name kind deps; do
-      printf '%-5s  %-28s  %-8s  %s\n' "$score" "$name" "$kind" "$deps"
+      local color risk_field
+      color="$(_depgraph_risk_color "$((10#$score))")"
+      risk_field="$(ui_colorize 5 "$color" "$score")"
+      ui_table_row "" "$risk_field" 28 "$name" 8 "$kind" "" "$deps"
     done
 }

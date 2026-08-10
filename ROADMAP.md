@@ -51,7 +51,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M5 — Audit Log & Report         | v0.6.0   | `[x] done`   |
 | M6 — Performance                | v0.7.0   | `[x] done`   |
 | M7 — Upgrade Checklist          | v0.8.0   | `[x] done`   |
-| M8 — Visual Polish              | v0.9.0   | `[ ] planned` |
+| M8 — Visual Polish              | v0.9.0   | `[x] done`   |
 | M9 — Manual & Help              | v0.10.0  | `[ ] planned` |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
@@ -267,19 +267,59 @@ implementation and why the scope changed.
 
 ### Milestone 8 — Visual Polish
 
-**Status:** `[ ] planned` **Branch:** `feat/visual` **Version:** `v0.9.0` **Depends on:** M0, M4, M5, M6, M7
+**Status:** `[x] done` **Branch:** `feat/visual` **Version:** `v0.9.0` **Depends on:** M0, M4, M5, M6, M7
 
-#### Scope
+#### Scope (as actually built — see below for how this differs from the original plan)
+
+Progress indicators (`[N/total]`) and aligned tables already existed —
+`cleanup.sh`, `upgrade.sh` had working progress lines, and `profile.sh`,
+`audit.sh`, `depgraph.sh`, `cleanup.sh`, `snapshot.sh` each hand-rolled
+their own aligned table header/rule/rows. `audit_report` already drew a
+title-width `─────` rule. What was genuinely missing: any actual ANSI
+color anywhere (risk/cleanup scores were plain numbers), and a shared
+place for these patterns instead of five duplicated copies.
+
+Built `lib/brewmaster/core/ui.sh` with `ui_color_init` (extends
+`bin/brewmaster`'s existing `--help` `NO_COLOR`/non-TTY/no-`tput`
+detection to real colors), `ui_table_header`/`ui_table_row` (width/value
+pairs, not a fixed schema — five tables have five different shapes),
+`ui_progress`/`ui_progress_clear` (extracted, not redesigned — no
+spinner, `[N/total]` already worked), `ui_section`, `ui_summary`, and
+`ui_colorize` (pads *before* coloring — `printf`'s `%-Ns` counts raw ANSI
+bytes, so padding after coloring would misalign columns). Migrated all
+six files. Colored dependency risk score (`deps show`, `upgrade` risk
+warnings) and cleanup score (`cleanup`, `why` via `cleanup_report`) using
+the thresholds already defined in `depgraph.sh`/`cleanup.sh` — note the
+color *direction* is inverted between the two: a HIGH risk score is red
+(dangerous to upgrade), a HIGH cleanup score is green (safer to remove).
+Colored `snapshot diff`'s NEW/REMOVED/UPGRADE/DOWNGRADE tags too.
+
+A few things planned but not built, found not to fit once the actual
+code was in front of us:
+- No spinner — `[N/total]` was already the working pattern, extracting
+  it was the job, not replacing it.
+- `run_upgrade`'s per-package `[i/total] ==> brew upgrade name` line
+  ends with a real newline and stays as a permanent log entry, unlike
+  the transient overwritten-in-place progress lines elsewhere — left it
+  alone rather than forcing it into `ui_progress`.
+- `why()` and `audit_report`'s metric block don't have a natural
+  "section title" or "single closing line" to hang `ui_section`/
+  `ui_summary` on — both are compact/multi-row output, not a table with
+  a title. Left unchanged rather than adding a decoration that didn't
+  read better.
+- `snapshot_diff` never had a header row and mixes fixed decoration
+  (`  ->  `, `[...]`) into its row format — didn't force it through
+  `ui_table_row`, just colored the tag value directly.
+- No test needed `sed`-based ANSI stripping in practice: `ui_color_init`
+  checks `[ -t 1 ]`, and a `$(...)` command substitution is never a TTY,
+  so every existing test's captured output was already colorless for
+  free. Only the handful of tests written specifically to check color
+  *selection* logic needed anything extra (sentinel color overrides).
+
+#### Original plan (superseded — kept for context, not what was built)
 
 Output is functional but visually flat — no hierarchy, no color coding, no feedback
 during long operations. Polish all command output to a consistent visual standard.
-
-#### Files
-
-- `lib/brewmaster/core/ui.sh` — new: color constants, spinner, aligned columns, section headers
-- All existing command files — consume `ui.sh` helpers
-
-#### Function Contracts
 
 ```
 ui_color_init
@@ -296,27 +336,27 @@ ui_section "$title"         # e.g. "── Cleanup Report ───────�
 ui_summary "$msg"           # consistent end-of-command summary line
 ```
 
-#### Tasks
+#### Files
 
-- [ ] Create `lib/brewmaster/core/ui.sh` with color constants and helpers
-- [ ] Respect `NO_COLOR` env var — strip all colors when set
-- [ ] Strip colors automatically when stdout is not a TTY (piped output stays clean)
-- [ ] Risk score coloring consistent across all commands: LOW=green, MEDIUM=yellow, HIGH=red
-- [ ] Progress indicator for long walks (`cleanup`, `bloat`, `deps show`) — spinner or `[N/total]`
-- [ ] Aligned column output for all tabular data (upgrade list, snapshot list, log)
-- [ ] Section headers consistent style: `── Section Title ──────────`
-- [ ] Summary line at end of every command: counts, timing, next suggested action
-- [ ] Update tests to strip color codes before assertion: `sed 's/\x1b\[[0-9;]*m//g'`
+- `lib/brewmaster/core/ui.sh` — color constants, table rendering,
+  progress line, section header, summary line, `ui_colorize`
+- `lib/brewmaster/{profile,audit,depgraph,cleanup,upgrade,snapshot}.sh` —
+  migrated to consume `ui.sh`
+- `bin/brewmaster` — sources `core/ui.sh`, calls `ui_color_init` once
 
-#### Acceptance Criteria
+#### Acceptance Criteria (actual)
 
 ```
-brewmaster cleanup            # color-coded risk levels, spinner during walk
-brewmaster report             # aligned columns, section headers
-brewmaster deps show openssl  # risk score highlighted by level
+brewmaster cleanup            # color-coded cleanup score, [N/total] during walk
+brewmaster report             # aligned table, section-headed title
+brewmaster deps show openssl  # risk score highlighted by level (inverted direction from cleanup)
 brewmaster report | grep done # clean plain text — no color bleed in pipes
-# NO_COLOR=1 brewmaster cleanup  # no color codes in output
+NO_COLOR=1 brewmaster cleanup # no color codes in output
+# All 7 test files pass (256 assertions); shellcheck clean on bin/brewmaster and lib/brewmaster/**/*.sh
 ```
+
+See `openspec/changes/archive/` (once archived) for the full proposal,
+design, specs, and tasks record.
 
 ---
 

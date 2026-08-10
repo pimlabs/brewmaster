@@ -106,12 +106,11 @@ profile_list() {
     return 0
   fi
 
-  printf '%-16s  %s\n' "NAME" "DESCRIPTION"
-  printf '%-16s  %s\n' "----" "-----------"
+  ui_table_header 16 "NAME" "" "DESCRIPTION"
   local n desc
   for n in "${names[@]}"; do
     desc="$(_profile_section "$n" "$file" | grep '^description' | sed -e 's/^[^=]*=[[:space:]]*//' -e 's/^"//' -e 's/"$//')" || true
-    printf '%-16s  %s\n' "$n" "${desc:--}"
+    ui_table_row 16 "$n" "" "${desc:--}"
   done
 }
 
