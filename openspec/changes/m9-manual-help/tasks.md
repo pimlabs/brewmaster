@@ -12,7 +12,7 @@
 
 ## 2. Add missing per-group examples
 
-- [ ] 2.1 Add one `e.g. brewmaster ...` example line to each group in
+- [x] 2.1 Add one `e.g. brewmaster ...` example line to each group in
       `help_data.sh` that doesn't already have one: DEPENDENCY RISK,
       SNAPSHOT & ROLLBACK, PROFILES, CLEANUP & INTENT, AUDIT LOG & REPORTS
 - [ ] 2.2 Regenerate `tests/fixtures/help.txt`

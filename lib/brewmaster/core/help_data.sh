@@ -51,6 +51,7 @@ UPGRADE (default command)
 DEPENDENCY RISK
   deps show [package]        Show dependency risk for one package, or list all
                              outdated packages sorted by risk score.
+                             e.g. brewmaster deps show node
 
   Flags (apply to upgrade):
     --check-deps             Risk-score each upgrade candidate; skip HIGH-risk, warn on MEDIUM.
@@ -63,6 +64,7 @@ SNAPSHOT & ROLLBACK
   snapshot diff [INDEX|PATH]  Show packages changed since a snapshot.
   snapshot restore [INDEX|PATH]  Restore packages to a snapshot state.
   snapshot delete [INDEX|PATH]   Delete a snapshot.
+                             e.g. brewmaster snapshot restore 0
 
   Flags:
     --label=TEXT             Label for 'snapshot save'.
@@ -75,6 +77,7 @@ PROFILES
   profile edit [name]         Open profiles.toml in $EDITOR.
   profile diff <a> <b>        Compare include lists between two profiles.
   profile validate             Check profiles.toml for errors.
+                             e.g. brewmaster upgrade --profile=work
 
   Flags (apply to upgrade):
     --profile=NAME           Apply a profile's package filter and level.
@@ -86,6 +89,7 @@ CLEANUP & INTENT
                              install date, last-access heuristic).
   bloat                      Summary of installed package counts and estimated
                              disk reclaim from cleanup candidates.
+                             e.g. brewmaster cleanup --interactive
 
   Flags (apply to cleanup):
     -n, --dry-run            Read-only report (also the default with no flags).
@@ -96,6 +100,7 @@ AUDIT LOG & REPORTS
   log                        Show recent audit log entries (last 20 by default).
   report                     Machine health summary: upgrades, cleanups,
                              snapshots, orphans, and risk trend.
+                             e.g. brewmaster log --action=upgrade --since=7d
 
   Flags (apply to log):
     --package=NAME           Filter entries by package name.
