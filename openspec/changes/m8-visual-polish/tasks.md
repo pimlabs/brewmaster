@@ -1,20 +1,26 @@
 ## 1. ui.sh module
 
-- [ ] 1.1 Create `lib/brewmaster/core/ui.sh` with `ui_color_init`
+- [x] 1.1 Created `lib/brewmaster/core/ui.sh` with `ui_color_init`
       (`COLOR_OK`/`COLOR_WARN`/`COLOR_HIGH`/`COLOR_MUTED`/`COLOR_RESET`,
       suppressed under `NO_COLOR`/non-TTY/no-`tput`, mirroring
       `bin/brewmaster`'s existing `_help_style_vars` detection)
-- [ ] 1.2 Add `ui_table_header "$w1" "$label1" ...` / `ui_table_row "$w1"
-      "$val1" ...` — width/value pairs, dashed rule row on header
-- [ ] 1.3 Add `ui_progress "$current" "$total" "$label"` — extract the
-      existing `printf '\r\033[K[%d/%d] %s'` pattern, byte-identical
-      output
-- [ ] 1.4 Add `ui_section "$title"` — title + `─` rule matching title
+- [x] 1.2 Added `ui_table_header`/`ui_table_row` — width/value pairs
+      (width `""` = trailing unpadded column). Verified byte-identical
+      output against the hand-written `depgraph_list_risky` table.
+      Discovered mid-implementation: rule-dash length in every existing
+      table but `audit.sh`'s already matches the *label's* length, not
+      the column width — `audit.sh` was the outlier; unified all tables
+      on label-length dashes (nothing asserts the exact dash count, so
+      this only fixes an existing inconsistency, doesn't break a test)
+- [x] 1.3 Added `ui_progress`/`ui_progress_clear` — extracted the
+      existing `printf '\r\033[K[%d/%d] %s'`/`printf '\r\033[K'` pattern,
+      byte-identical
+- [x] 1.4 Added `ui_section "$title"` — title + `─` rule matching title
       length (generalizes `audit_report`'s existing rule)
-- [ ] 1.5 Add `ui_summary "$msg"` — consistent end-of-command summary
+- [x] 1.5 Added `ui_summary "$msg"` — consistent end-of-command summary
       line wrapper
-- [ ] 1.6 Source `core/ui.sh` from `bin/brewmaster` alongside the other
-      `core/*.sh` modules
+- [x] 1.6 Sourced `core/ui.sh` from `bin/brewmaster`, `ui_color_init`
+      called once after all modules are sourced
 
 ## 2. Migrate depgraph.sh (risk score coloring)
 
