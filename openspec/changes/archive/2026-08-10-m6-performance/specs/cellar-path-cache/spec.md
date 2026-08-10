@@ -12,11 +12,11 @@ SHALL be printed.
 #### Scenario: First call fetches the Cellar root
 - **WHEN** `_cleanup_cellar_root` is called and the cache is unset
 - **THEN** it runs `brew --cellar` once and stores the result in
-  `CELLAR_ROOT`
+  `CLEANUP_CELLAR_ROOT`
 
 #### Scenario: Repeated call in the same invocation is a no-op
-- **WHEN** `_cleanup_cellar_root` is called and `CELLAR_ROOT` is already
-  set
+- **WHEN** `_cleanup_cellar_root` is called and `CLEANUP_CELLAR_ROOT` is
+  already set
 - **THEN** it returns immediately without invoking `brew` again
 
 #### Scenario: VERBOSE enabled shows timing
@@ -45,7 +45,7 @@ SHALL fall back to the cached Cellar root (instead of calling
 - **WHEN** `_cleanup_last_access` is called for a package with no bin/sbin
   files
 - **THEN** it returns the Cellar directory's mtime derived from
-  `CELLAR_ROOT`, without invoking `brew --cellar` for that package
+  `CLEANUP_CELLAR_ROOT`, without invoking `brew --cellar` for that package
 
 ### Requirement: bloat walk avoids per-package brew --cellar calls
 
