@@ -49,7 +49,7 @@
 
 ## 5. Man page generator
 
-- [ ] 5.1 Create `docs/gen-man.sh`: source `lib/brewmaster/core/help_data.sh`
+- [x] 5.1 Create `docs/gen-man.sh`: source `lib/brewmaster/core/help_data.sh`
       only (no CLI dispatch), walk `_help_source_text()`'s line shapes,
       emit troff with `.SH NAME`, `.SH SYNOPSIS`, `.SH DESCRIPTION`,
       `.SH COMMANDS`, `.SH FILES`, `.SH EXAMPLES`
