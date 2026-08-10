@@ -69,11 +69,10 @@ _audit_render() {
     return 0
   fi
 
-  printf '%-20s  %-10s  %-16s  %s\n' "TIMESTAMP" "ACTION" "PACKAGE" "DETAIL"
-  printf '%-20s  %-10s  %-16s  %s\n' "--------------------" "----------" "----------------" "------"
+  ui_table_header 20 "TIMESTAMP" 10 "ACTION" 16 "PACKAGE" "" "DETAIL"
   printf '%s\n' "$filtered" | jq -r "$jq_prog | @tsv" | \
     while IFS=$'\t' read -r ts action pkg detail; do
-      printf '%-20s  %-10s  %-16s  %s\n' "$ts" "$action" "$pkg" "$detail"
+      ui_table_row 20 "$ts" 10 "$action" 16 "$pkg" "" "$detail"
     done
 }
 
@@ -120,8 +119,7 @@ audit_query() {
 # (cache/EXIT-trap convention shared with cleanup_main/cleanup_bloat).
 audit_report() {
   local header; header="brewmaster machine report  (as of $(date +%Y-%m-%d))"
-  echo "$header"
-  printf '─%.0s' $(seq 1 ${#header}); echo
+  ui_section "$header"
 
   local up_total=0 up_patch=0 up_minor=0 up_major=0 cleanup_count=0 avg_risk="n/a"
   if [[ -f "$AUDIT_LOG" ]]; then

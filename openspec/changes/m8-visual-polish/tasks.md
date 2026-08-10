@@ -99,12 +99,19 @@
 
 ## 6. Migrate audit.sh
 
-- [ ] 6.1 `_audit_render`'s table -> `ui_table_header`/`ui_table_row`
+- [x] 6.1 `_audit_render`'s table -> `ui_table_header`/`ui_table_row`
       (table format only; `csv` format untouched)
-- [ ] 6.2 `audit_report`'s title rule -> `ui_section`
-- [ ] 6.3 `audit_report`'s upgrade/cleanup/snapshot summary lines ->
-      `ui_summary` where it reads as a single end-of-report line
-- [ ] 6.4 Update `tests/test_audit.sh`: strip ANSI before assertions
+- [x] 6.2 `audit_report`'s title rule -> `ui_section` (replaces the
+      original one-off `printf '─%.0s' $(seq 1 ${#header})`, the exact
+      pattern `ui_section` generalizes)
+- [x] 6.3 Reconsidered after reading the code: `audit_report`'s
+      upgrade/cleanup/snapshot/orphans/avg-risk lines are five metric
+      rows in one aligned block, not one final wrap-up line — there's no
+      single line that reads as "the summary" the way `cleanup_bloat`'s
+      closing hint line did. Left the metrics block as plain `printf`,
+      no `ui_summary` applied
+- [x] 6.4 No ANSI-stripping needed (see 4.4); `tests/test_audit.sh`
+      passes unmodified
 
 ## 7. Migrate snapshot.sh
 
