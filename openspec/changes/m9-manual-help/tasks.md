@@ -6,7 +6,7 @@
 - [x] 1.2 Source `core/help_data.sh` from `bin/brewmaster`, refactor
       `usage()` to pipe `_help_source_text()` through its existing styling
       loop instead of an inline heredoc
-- [ ] 1.3 Run `bash tests/test_cli.sh` and confirm the existing `--help`
+- [x] 1.3 Run `bash tests/test_cli.sh` and confirm the existing `--help`
       byte-identical assertion still passes unmodified — this step must be
       a pure refactor with zero output change
 
