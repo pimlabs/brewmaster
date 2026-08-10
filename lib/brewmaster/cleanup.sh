@@ -8,6 +8,9 @@
 # Cache path — set by _cleanup_build; empty until then.
 CLEANUP_CACHE=""
 
+# Cellar root path — set by _cleanup_cellar_root; empty until then.
+CLEANUP_CELLAR_ROOT=""
+
 # _cleanup_build — fetch `brew info --json=v2 --installed` once into a cache file.
 # Sets a combined EXIT trap covering both this cache and DEPGRAPH_CACHE (must be
 # called after depgraph_build — all public functions here need depgraph too).
@@ -24,6 +27,19 @@ _cleanup_build() {
   trap "rm -f '${CLEANUP_CACHE}' '${DEPGRAPH_CACHE:-}'" EXIT
 }
 
+# _cleanup_cellar_root — fetch the Homebrew Cellar root path (`brew --cellar`,
+# no package arg) once, so per-package Cellar dirs can be derived as
+# "$CLEANUP_CELLAR_ROOT/$pkg" without a `brew` call per package.
+# Idempotent: a no-op if already cached.
+# Sets: CLEANUP_CELLAR_ROOT
+# Return: 0
+_cleanup_cellar_root() {
+  [[ -n "$CLEANUP_CELLAR_ROOT" ]] && return 0
+  local t0=$SECONDS
+  CLEANUP_CELLAR_ROOT="$(brew --cellar 2>/dev/null)"
+  logv "[timing] cellar root fetched in $((SECONDS - t0))s"
+}
+
 # _cleanup_formula_json "$pkg" — print this formula's object from the cache, or
 # nothing if not present.
 _cleanup_formula_json() {
@@ -32,17 +48,20 @@ _cleanup_formula_json() {
 
 # _cleanup_last_access "$pkg"
 # Heuristic: max atime (epoch) of this formula's bin/sbin files (BSD `stat -f %a`).
+# Files are found with `find` under the cached Cellar root (no per-package
+# `brew list` call — same recursive bin/sbin match `brew list` would walk).
 # Falls back to Cellar dir mtime if formula installs no bin/sbin files.
 # stdout: epoch seconds (0 if nothing found)
 _cleanup_last_access() {
   local pkg="$1" f max=0 t
+  _cleanup_cellar_root
+  local cellar="$CLEANUP_CELLAR_ROOT/$pkg"
   while IFS= read -r f; do
-    [[ "$f" == */bin/* || "$f" == */sbin/* ]] || continue
+    [[ -n "$f" ]] || continue
     t="$(stat -f %a "$f" 2>/dev/null || echo 0)"
     (( t > max )) && max=$t
-  done < <(brew list "$pkg" 2>/dev/null || true)
+  done < <(find "$cellar" \( -path '*/bin/*' -o -path '*/sbin/*' \) -type f 2>/dev/null)
   if (( max == 0 )); then
-    local cellar; cellar="$(brew --cellar "$pkg" 2>/dev/null || true)"
     [[ -n "$cellar" && -d "$cellar" ]] && max="$(stat -f %m "$cellar" 2>/dev/null || echo 0)"
   fi
   echo "$max"
@@ -108,13 +127,14 @@ cleanup_score() {
 }
 
 # cleanup_scan
-# Calls depgraph_build + _cleanup_build internally.
+# Calls depgraph_build + _cleanup_build + _cleanup_cellar_root internally.
 # stdout: "name|category|cleanup_score|reason" per installed formula that falls
 #         into a category. Category priority: pinned-old > orphan > stale.
 # Return: 0
 cleanup_scan() {
   depgraph_build
   _cleanup_build
+  _cleanup_cellar_root
   local -a names=()
   while IFS= read -r name; do
     [[ -n "$name" ]] && names+=("$name")
@@ -341,6 +361,7 @@ cleanup_main() {
 cleanup_bloat() {
   depgraph_build
   _cleanup_build
+  _cleanup_cellar_root
   local rows; rows="$(cleanup_scan)"
 
   local total_formulae total_casks total
@@ -359,7 +380,7 @@ cleanup_bloat() {
     [[ -z "$name" ]] && continue
     i=$((i+1))
     printf '\r\033[K[%d/%d] %s' "$i" "$total" "$name" >&2
-    cellar="$(brew --cellar "$name" 2>/dev/null || true)"
+    cellar="$CLEANUP_CELLAR_ROOT/$name"
     if [[ -n "$cellar" && -d "$cellar" ]]; then
       size="$(du -sk "$cellar" 2>/dev/null | awk '{print $1}')"
       kb=$((kb + size))
