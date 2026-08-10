@@ -24,13 +24,24 @@
 
 ## 2. Migrate depgraph.sh (risk score coloring)
 
-- [ ] 2.1 `depgraph_list_risky`'s table -> `ui_table_header`/`ui_table_row`
-- [ ] 2.2 `depgraph_report`'s risk score line -> colored via
-      `COLOR_HIGH`/`COLOR_WARN`/`COLOR_OK` using the existing
-      HIGH/MEDIUM/LOW thresholds
-- [ ] 2.3 Update `tests/test_depgraph.sh`: strip ANSI before string
-      assertions, add a case asserting the correct color constant per
-      risk band
+- [x] 2.1 `depgraph_list_risky`'s table -> `ui_table_header`/`ui_table_row`.
+      Verified byte-identical to the pre-migration output for the
+      unpadded RISK score column (also fixed a latent bug: the padded
+      score string like "07" is octal in a bare `(( ))` context, so the
+      new `_depgraph_risk_color` helper needs `$((10#$score))` at this
+      call site specifically — `depgraph_report`'s call site uses an
+      unpadded score and needs no such fix)
+- [x] 2.2 Added `_depgraph_risk_color`; `depgraph_report`'s risk score
+      line now colored via `COLOR_HIGH`/`COLOR_WARN`/`COLOR_OK` using the
+      existing HIGH(>=RISK_THRESHOLD)/MEDIUM(4-6)/LOW(0-3) thresholds
+- [x] 2.3 Added `ui_colorize` to `ui.sh` (pads before coloring — printf's
+      `%-Ns` counts raw ANSI escape bytes, so padding after coloring
+      would misalign columns). `tests/test_depgraph.sh` now sources
+      `core/ui.sh` and overrides `COLOR_OK`/`WARN`/`HIGH` with
+      distinguishable sentinel strings (real `tput` colors are empty
+      under the test's own non-TTY capture, which would make every band
+      look the same); added 3 cases asserting `_depgraph_risk_color`
+      picks the right band at 0/6/10
 
 ## 3. Migrate cleanup.sh (cleanup score coloring, progress, section)
 

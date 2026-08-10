@@ -65,6 +65,12 @@ logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 # Source dependencies
 source "$LIB/core/semver.sh"
 source "$LIB/core/outdated.sh"
+source "$LIB/core/ui.sh"
+ui_color_init
+# Overwrite with distinguishable sentinels: ui_color_init sets these to ""
+# under a non-TTY (this test's own $(...) capture), which would make every
+# band pass the same "empty" assertion regardless of which one was chosen.
+COLOR_OK="OK" COLOR_WARN="WARN" COLOR_HIGH="HIGH"
 source "$LIB/depgraph.sh"
 
 pass=0; fail=0
@@ -120,6 +126,11 @@ score_empty="$(depgraph_risk_score "openssl" "")"
 report="$(depgraph_report "openssl")"
 echo "$report" | grep -qi 'Dependents'      && ok || bad "report: shows Dependents header"
 echo "$report" | grep -q 'Risk score'       && ok || bad "report: shows Risk score"
+
+# --- 10a-c. _depgraph_risk_color: LOW/MEDIUM/HIGH bands (RISK_THRESHOLD=7) ---
+[ "$(_depgraph_risk_color 0)" = "OK" ]      && ok || bad "risk_color 0 (LOW): expected OK"
+[ "$(_depgraph_risk_color 6)" = "WARN" ]    && ok || bad "risk_color 6 (MEDIUM): expected WARN"
+[ "$(_depgraph_risk_color 10)" = "HIGH" ]   && ok || bad "risk_color 10 (HIGH): expected HIGH"
 
 # --- 11. depgraph_list_risky → sorted descending; node before git ---
 list_out="$(depgraph_list_risky)"

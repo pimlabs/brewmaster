@@ -38,6 +38,9 @@ logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 # Source core (needed by snapshot_diff for bump_kind / to_semver_3)
 # shellcheck source=../lib/brewmaster/core/semver.sh
 source "$LIB/core/semver.sh"
+# shellcheck source=../lib/brewmaster/core/ui.sh
+source "$LIB/core/ui.sh"
+ui_color_init
 # shellcheck source=../lib/brewmaster/audit.sh
 source "$LIB/audit.sh"
 # shellcheck source=../lib/brewmaster/snapshot.sh

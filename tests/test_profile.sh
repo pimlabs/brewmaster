@@ -62,6 +62,8 @@ logv() { $VERBOSE && echo "[v] $*" >&2 || true; }
 
 source "$LIB/core/semver.sh"
 source "$LIB/core/outdated.sh"
+source "$LIB/core/ui.sh"
+ui_color_init
 source "$LIB/upgrade.sh"
 source "$LIB/profile.sh"
 

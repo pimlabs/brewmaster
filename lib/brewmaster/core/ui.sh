@@ -24,6 +24,22 @@ ui_color_init() {
   COLOR_RESET="$(tput sgr0 2>/dev/null || true)"
 }
 
+# ui_colorize "$width" "$color" "$value"
+# Pad $value to $width *before* wrapping it in color — printf's %-Ns
+# padding counts raw bytes, so padding after adding ANSI escape codes
+# would misalign the column by the invisible escape sequence's length.
+# Pass the result to ui_table_row/ui_table_header with an empty width
+# ("") since it is already padded.
+# Args:   $1 width (integer, or "" for no padding), $2 color code, $3 value
+# Stdout: padded, colored value (colorless passthrough if $2 is empty)
+# Return: 0
+ui_colorize() {
+  local w="$1" color="$2" val="$3" padded
+  if [[ -n "$w" ]]; then padded="$(printf -- "%-${w}s" "$val")"; else padded="$val"; fi
+  [[ -z "$color" ]] && { printf '%s' "$padded"; return 0; }
+  printf '%s%s%s' "$color" "$padded" "${COLOR_RESET}"
+}
+
 # ui_table_header "$w1" "$label1" ["$w2" "$label2" ...]
 # Print an aligned header row followed by a dashed rule row. Column
 # widths are per-call, not fixed — each table already has its own shape;
