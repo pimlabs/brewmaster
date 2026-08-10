@@ -229,7 +229,8 @@ export PATH="$OLD_PATH"
 PROFILE_NAME=""
 rm -rf "$MOCK_BIN"
 
-# --- 21. --interactive without fzf → error + exit 1 ---
+# --- 21. --dry-run shows the plan regardless of fzf availability (review
+#         gate no longer applies under --dry-run at all — no error, no fzf) ---
 MOCK_BIN3="$(mktemp -d)"
 cat > "$MOCK_BIN3/brew" <<'EOF'
 #!/usr/bin/env bash
@@ -247,7 +248,6 @@ command() {
   builtin command "$@"
 }
 
-INTERACTIVE=true
 DRY_RUN=true
 LEVEL="patch"; LEVEL_EXPLICIT=false; OR_LOWER=false; ALLOW_DATE=false
 ONLY_FORMULAE=false; ONLY_CASKS=false
@@ -255,14 +255,16 @@ CHECK_DEPS=false
 PACKAGES=()
 
 out="$(run_upgrade 2>&1)"; ret=$?
-[ "$ret" -eq 1 ]                            && ok || bad "interactive no fzf: exit 1"
-echo "$out" | grep -qi "fzf"                && ok || bad "interactive no fzf: mentions fzf"
+[ "$ret" -eq 0 ]                            && ok || bad "dry-run no fzf: exits 0"
+echo "$out" | grep -q "git"                 && ok || bad "dry-run no fzf: still shows candidate (git)"
+echo "$out" | grep -qi "fzf"                && bad "dry-run no fzf: must not mention fzf" || ok
 
 unset -f command
 export PATH="$OLD_PATH"
 rm -rf "$MOCK_BIN3"
 
-# --- 22. --interactive with fzf: selection filters the plan ---
+# --- 22. review gate (fzf available, real execution): selection filters
+#         which candidates actually get upgraded ---
 MOCK_BIN4="$(mktemp -d)"
 cat > "$MOCK_BIN4/brew" <<'EOF'
 #!/usr/bin/env bash
@@ -272,6 +274,7 @@ case "$*" in
     printf 'git (2.40.0) < 2.40.1\n'
     printf 'jq (1.6.0) < 1.7.0\n'
     ;;
+  "upgrade git") echo "upgraded git" ;;
   "--version") echo "Homebrew 4.2.0" ;;
 esac
 EOF
@@ -284,16 +287,14 @@ EOF
 chmod +x "$MOCK_BIN4/fzf"
 export PATH="$MOCK_BIN4:$OLD_PATH"
 
-INTERACTIVE=true
-DRY_RUN=true
+DRY_RUN=false
 PACKAGES=()
 
 out="$(run_upgrade 2>&1)"
-echo "$out" | grep -q "git"                 && ok || bad "interactive fzf: selected candidate (git) in plan"
-echo "$out" | grep -q "jq"                  && bad "interactive fzf: unselected candidate (jq) should be excluded" || ok
+echo "$out" | grep -q "upgraded git"        && ok || bad "review gate fzf: selected candidate (git) upgraded"
+echo "$out" | grep -q "upgraded jq"         && bad "review gate fzf: unselected candidate (jq) must not be upgraded" || ok
 
 export PATH="$OLD_PATH"
-INTERACTIVE=false
 rm -rf "$MOCK_BIN4"
 
 echo "Passed: $pass, Failed: $fail"
