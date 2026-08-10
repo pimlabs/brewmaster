@@ -20,7 +20,15 @@ esac
 EOF
 chmod +x "$MOCK/brew"
 
+# jq is a real dependency (used for audit log entries); symlink it into MOCK
+# so `run_no_fzf` below can drop the rest of PATH (where a real host `fzf`
+# might live, e.g. Homebrew's bin) without losing jq too.
+ln -s "$(command -v jq)" "$MOCK/jq"
+
 run()  { PATH="$MOCK:$PATH" "$BM" "$@"; }      # brewmaster with mock brew
+# Same, but PATH is restricted to MOCK + bare-minimum system dirs, so no real
+# `fzf` on the host machine can be found — exercises the no-fzf fallback.
+run_no_fzf() { PATH="$MOCK:/usr/bin:/bin" "$BM" "$@"; }
 rows() { grep -c '  - ' || true; }             # count candidate rows
 
 pass=0; fail=0
@@ -59,7 +67,8 @@ run boguscmd >/dev/null 2>&1 && bad "unknown command should fail" || ok
 run upgrade --level=bogus >/dev/null 2>&1 && bad "invalid level should fail" || ok
 
 # 8. execution branch (non-dry-run) upgrades the candidate
-out="$(run upgrade --patch 2>/dev/null)"; rc=$?
+#    --yes is required now: without it, execution stops at the review gate.
+out="$(run upgrade --patch --yes 2>/dev/null)"; rc=$?
 echo "$out" | grep -q 'upgraded foo' && ok || bad "execution should upgrade foo"
 [ "$rc" -eq 0 ]                       && ok || bad "execution should exit 0"
 
@@ -69,6 +78,31 @@ diff <(NO_COLOR=1 "$BM" --help) "$DIR/fixtures/help.txt" >/dev/null \
   && ok || bad "--help with NO_COLOR should match tests/fixtures/help.txt"
 diff <("$BM" --help | cat) "$DIR/fixtures/help.txt" >/dev/null \
   && ok || bad "--help piped (non-TTY) should match tests/fixtures/help.txt"
+
+# 10. --dry-run never triggers the review step (no prompt, no execution),
+#     even with a real fzf reachable on PATH — proves the table-only
+#     dry-run path returns before the review gate is reached at all.
+out="$(run upgrade --patch --dry-run 2>/dev/null)"; rc=$?
+echo "$out" | grep -q '  - foo '  && ok || bad "dry-run: still shows candidate table"
+echo "$out" | grep -q 'upgraded' && bad "dry-run: must not execute" || ok
+[ "$rc" -eq 0 ]                  && ok || bad "dry-run: exits 0"
+
+# 11. no fzf (run_no_fzf strips PATH down to MOCK + bare system dirs),
+#     review declined -> nothing upgraded, exits 0
+#     (prompt itself goes to stderr, so keep it merged for this assertion)
+out="$(echo n | run_no_fzf upgrade --patch 2>&1)"; rc=$?
+echo "$out" | grep -q 'Upgrade all?' && ok || bad "no-fzf fallback: shows [y/N] prompt"
+echo "$out" | grep -q 'upgraded'     && bad "no-fzf fallback, declined: must not execute" || ok
+[ "$rc" -eq 0 ]                      && ok || bad "no-fzf fallback, declined: exits 0"
+
+# 12. no fzf, review confirmed -> upgrades
+out="$(echo y | run_no_fzf upgrade --patch 2>/dev/null)"
+echo "$out" | grep -q 'upgraded foo' && ok || bad "no-fzf fallback, confirmed: upgrades foo"
+
+# 13. --yes skips the review step entirely (no prompt) even with no input piped
+out="$(run_no_fzf upgrade --patch --yes 2>&1)"
+echo "$out" | grep -q 'Upgrade all?' && bad "--yes: must not show review prompt" || ok
+echo "$out" | grep -q 'upgraded foo' && ok || bad "--yes: still upgrades foo"
 
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))

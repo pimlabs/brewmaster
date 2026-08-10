@@ -312,8 +312,10 @@ post_lines="$(wc -l < "$AUDIT_LOG" | tr -d ' ')"
 [ "$pre_lines" = "$post_lines" ]                        && ok || bad "_cleanup_remove_list failure: no audit entry"
 
 # --- 22. run_upgrade: real execution appends "upgrade" entry (no risk when CHECK_DEPS=false) ---
+# YES_FLAG=true: these tests are about audit-log content, not the review
+# gate, so skip straight to execution (test 25 below exercises the gate).
 : > "$AUDIT_LOG"
-DRY_RUN=false; CHECK_DEPS=false; LEVEL="patch"; OR_LOWER=false
+DRY_RUN=false; CHECK_DEPS=false; LEVEL="patch"; OR_LOWER=false; YES_FLAG=true
 run_upgrade >/dev/null
 entry="$(tail -n1 "$AUDIT_LOG")"
 [ "$(echo "$entry" | jq -r '.action')" = "upgrade" ]    && ok || bad "run_upgrade real: appends action=upgrade"
@@ -340,7 +342,8 @@ entry="$(tail -n1 "$AUDIT_LOG")"
 [ "$(echo "$entry" | jq -r '.risk')" = "0" ]            && ok || bad "run_upgrade CHECK_DEPS=true: risk=0 (no dependents)"
 CHECK_DEPS=false
 
-# --- 25. run_upgrade --interactive: logs only the selected package ---
+# --- 25. run_upgrade review gate (fzf available): logs only the selected package ---
+# YES_FLAG=false (the review gate is the default now, no --interactive needed)
 MOCK_FZF="$(mktemp -d)"
 cat > "$MOCK_FZF/fzf" <<'FZFEOF'
 #!/usr/bin/env bash
@@ -350,13 +353,12 @@ chmod +x "$MOCK_FZF/fzf"
 export PATH="$MOCK_FZF:$PATH"
 
 : > "$AUDIT_LOG"
-INTERACTIVE=true
+YES_FLAG=false
 run_upgrade >/dev/null
 entry="$(tail -n1 "$AUDIT_LOG")"
-[ "$(echo "$entry" | jq -r '.action')" = "upgrade" ]      && ok || bad "run_upgrade interactive: appends action=upgrade"
-[ "$(echo "$entry" | jq -r '.package')" = "git" ]         && ok || bad "run_upgrade interactive: package=git (selected via fzf)"
-[ "$(wc -l < "$AUDIT_LOG" | tr -d ' ')" -eq 1 ]           && ok || bad "run_upgrade interactive: only 1 entry logged"
-INTERACTIVE=false
+[ "$(echo "$entry" | jq -r '.action')" = "upgrade" ]      && ok || bad "run_upgrade review gate: appends action=upgrade"
+[ "$(echo "$entry" | jq -r '.package')" = "git" ]         && ok || bad "run_upgrade review gate: package=git (selected via fzf)"
+[ "$(wc -l < "$AUDIT_LOG" | tr -d ' ')" -eq 1 ]           && ok || bad "run_upgrade review gate: only 1 entry logged"
 
 export PATH="${PATH#"$MOCK_FZF:"}"
 rm -rf "$MOCK_FZF"
