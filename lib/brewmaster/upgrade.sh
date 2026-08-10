@@ -18,9 +18,11 @@ _in_list() {
 }
 
 # run_upgrade — main flow: read `brew outdated`, classify each package by semver
-# bump, gate by level, then print the plan (DRY_RUN) or execute `brew upgrade`.
+# bump, gate by level, then print the plan (DRY_RUN) or review-and-execute.
+# Unless DRY_RUN or YES_FLAG, candidates go through a review gate before
+# execution: fzf multi-select if installed, else a table + single [y/N].
 # Globals (read): LEVEL OR_LOWER ALLOW_DATE ONLY_FORMULAE ONLY_CASKS DRY_RUN VERBOSE
-#                 INTERACTIVE PROFILE_NAME PROFILE_MAX_RISK PROFILE_REQUIRE_CONFIRM
+#                 YES_FLAG PROFILE_NAME PROFILE_MAX_RISK PROFILE_REQUIRE_CONFIRM
 # Uses:           parse_outdated_line, to_semver_3, bump_kind, allow_by_level, logv
 # Return:         0 on success; 1 if any upgrade failed.
 run_upgrade() {
@@ -106,40 +108,6 @@ run_upgrade() {
     echo "Note: ${skipped_nonsemver} package(s) skipped (non-semver version)." >&2
   fi
 
-  if $INTERACTIVE && ((${#upgrade_list[@]} > 0)); then
-    if ! command -v fzf >/dev/null 2>&1; then
-      echo "Error: --interactive requires fzf. Install with: brew install fzf" >&2
-      exit 1
-    fi
-    local -a fzf_display=()
-    local i
-    for i in "${!upgrade_list[@]}"; do
-      fzf_display+=("${upgrade_list[$i]}"$'\t'"${report_rows[$i]}")
-    done
-    local selected
-    selected="$(printf '%s\n' "${fzf_display[@]}" | \
-      fzf --multi --ansi \
-          --header='tab: toggle · ctrl-a: all · enter: upgrade' \
-          --prompt='Select packages > ' | \
-      cut -f1)"
-    local -a new_list=() new_rows=() new_meta=()
-    for i in "${!upgrade_list[@]}"; do
-      echo "$selected" | grep -qFx "${upgrade_list[$i]}" || continue
-      new_list+=("${upgrade_list[$i]}")
-      new_rows+=("${report_rows[$i]}")
-      new_meta+=("${upgrade_meta[$i]}")
-    done
-    if (( ${#new_list[@]} > 0 )); then
-      upgrade_list=("${new_list[@]}")
-      report_rows=("${new_rows[@]}")
-      upgrade_meta=("${new_meta[@]}")
-    else
-      upgrade_list=()
-      report_rows=()
-      upgrade_meta=()
-    fi
-  fi
-
   if $DRY_RUN; then
     if ((${#upgrade_list[@]}==0)); then
       echo "No upgrade candidates (level=${LEVEL}, or-lower=${OR_LOWER})."
@@ -153,6 +121,56 @@ run_upgrade() {
   if ((${#upgrade_list[@]}==0)); then
     echo "No packages to upgrade (level=${LEVEL}, or-lower=${OR_LOWER})."
     return 0
+  fi
+
+  # Review gate: default before every execution, skipped only by --yes.
+  # fzf multi-select when available; a single [y/N] for the whole batch
+  # otherwise (never a hard failure on missing fzf).
+  if ! $YES_FLAG; then
+    if command -v fzf >/dev/null 2>&1; then
+      local -a fzf_display=()
+      local i
+      for i in "${!upgrade_list[@]}"; do
+        fzf_display+=("${upgrade_list[$i]}"$'\t'"${report_rows[$i]}")
+      done
+      local selected
+      selected="$(printf '%s\n' "${fzf_display[@]}" | \
+        fzf --multi --ansi \
+            --header='tab: toggle · ctrl-a: all · enter: upgrade' \
+            --prompt='Select packages > ' | \
+        cut -f1)"
+      local -a new_list=() new_rows=() new_meta=()
+      for i in "${!upgrade_list[@]}"; do
+        echo "$selected" | grep -qFx "${upgrade_list[$i]}" || continue
+        new_list+=("${upgrade_list[$i]}")
+        new_rows+=("${report_rows[$i]}")
+        new_meta+=("${upgrade_meta[$i]}")
+      done
+      if (( ${#new_list[@]} > 0 )); then
+        upgrade_list=("${new_list[@]}")
+        report_rows=("${new_rows[@]}")
+        upgrade_meta=("${new_meta[@]}")
+      else
+        upgrade_list=()
+        report_rows=()
+        upgrade_meta=()
+      fi
+    else
+      echo "Upgrade candidates (${#upgrade_list[@]}) [level=${LEVEL}, or-lower=${OR_LOWER}]:"
+      printf '  - %s\n' "${report_rows[@]}"
+      printf 'Upgrade all? [y/N] ' >&2
+      local ans; read -r ans
+      if [[ ! "$ans" =~ ^[Yy]$ ]]; then
+        upgrade_list=()
+        report_rows=()
+        upgrade_meta=()
+      fi
+    fi
+
+    if ((${#upgrade_list[@]}==0)); then
+      echo "Nothing selected."
+      return 0
+    fi
   fi
 
   echo "Upgrading ${#upgrade_list[@]} package(s) [level=${LEVEL}, or-lower=${OR_LOWER}]:"

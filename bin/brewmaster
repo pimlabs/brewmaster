@@ -148,7 +148,11 @@ UPGRADE (default command)
     --formulae               Formulae only (skip casks).
     --casks                  Casks only (skip formulae).
     --profile=NAME           Filter/level from a named profile (see PROFILES).
-    --interactive, -i        fzf multi-select among upgrade candidates (requires fzf).
+    --interactive, -i        No effect (review below is now always shown; kept for compatibility).
+
+  Before executing, candidates are always shown for review: fzf multi-select if
+  installed, else a table plus a single [y/N] for the whole batch. --dry-run and
+  --yes both skip this (--dry-run shows the table and stops; --yes upgrades all).
 
 DEPENDENCY RISK
   deps show [package]        Show dependency risk for one package, or list all
@@ -157,7 +161,7 @@ DEPENDENCY RISK
   Flags (apply to upgrade):
     --check-deps             Risk-score each upgrade candidate; skip HIGH-risk, warn on MEDIUM.
     --risk-threshold=N       HIGH-risk cutoff (default: 7; range 0-10).
-    --yes, -y                Auto-confirm MEDIUM-risk packages (no prompt).
+    --yes, -y                Auto-confirm MEDIUM-risk packages, and skip the upgrade review step.
 
 SNAPSHOT & ROLLBACK
   snapshot save              Save current Homebrew state to a snapshot.
@@ -180,7 +184,7 @@ PROFILES
 
   Flags (apply to upgrade):
     --profile=NAME           Apply a profile's package filter and level.
-    --interactive, -i        fzf multi-select (requires fzf).
+    --interactive, -i        No effect (upgrade always reviews candidates before executing).
 
 CLEANUP & INTENT
   cleanup                    Report orphan/stale/pinned-old formulae (read-only by default).
