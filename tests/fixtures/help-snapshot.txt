@@ -1,0 +1,13 @@
+SNAPSHOT & ROLLBACK
+  snapshot save              Save current Homebrew state to a snapshot.
+  snapshot list              List all snapshots.
+  snapshot diff [INDEX|PATH]  Show packages changed since a snapshot.
+  snapshot restore [INDEX|PATH]  Restore packages to a snapshot state.
+  snapshot delete [INDEX|PATH]   Delete a snapshot.
+                             e.g. brewmaster snapshot restore 0
+
+  Flags:
+    --label=TEXT             Label for 'snapshot save'.
+    -n, --dry-run            Show plan without executing for 'snapshot restore'.
+    --force                  Skip the y/N confirmation for 'snapshot delete'.
+

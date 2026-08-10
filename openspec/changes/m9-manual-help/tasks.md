@@ -33,7 +33,7 @@
 - [x] 3.3 Add `help` dispatch case: `brewmaster help` (no args) calls
       `usage()`; `brewmaster help <command>` calls `help_command
       <command>`; unknown command prints an error to stderr and exits 1
-- [ ] 3.4 Add fixtures under `tests/fixtures/help-<command>.txt` (or one
+- [x] 3.4 Add fixtures under `tests/fixtures/help-<command>.txt` (or one
       per group) and assertions in `tests/test_cli.sh` for: a known
       single-command group, a known multi-command group (`snapshot`), and
       an unknown command's error + exit code
