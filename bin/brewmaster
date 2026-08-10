@@ -267,7 +267,7 @@ while [[ $# -gt 0 ]]; do
     --format=*)          AUDIT_FORMAT="${1#*=}" ;;
     --format)            shift; AUDIT_FORMAT="${1-}" ;;
     -v|--verbose)        VERBOSE=true ;;
-    -V|--version)    echo "brewmaster ${BREWMASTER_VERSION}"; exit 0 ;;
+    -V|--version)    echo "brewmaster ${BREWMASTER_VERSION} (built ${BUILD_DATE})"; exit 0 ;;
     -h|--help)       usage; exit 0 ;;
     -*) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
     *)  PACKAGES+=("$1") ;;   # positional = package name to target
