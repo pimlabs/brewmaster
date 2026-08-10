@@ -15,7 +15,7 @@
 - [x] 2.1 Add one `e.g. brewmaster ...` example line to each group in
       `help_data.sh` that doesn't already have one: DEPENDENCY RISK,
       SNAPSHOT & ROLLBACK, PROFILES, CLEANUP & INTENT, AUDIT LOG & REPORTS
-- [ ] 2.2 Regenerate `tests/fixtures/help.txt`
+- [x] 2.2 Regenerate `tests/fixtures/help.txt`
       (`NO_COLOR=1 bin/brewmaster --help > tests/fixtures/help.txt`) and
       confirm the new example lines are the only diff from the previous
       fixture
