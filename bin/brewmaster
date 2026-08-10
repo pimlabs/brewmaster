@@ -113,26 +113,84 @@ usage() {
   _help_style_vars
   local line
   while IFS= read -r line; do
-    case "$line" in
-      "")
-        printf '\n' ;;
-      "Usage:"*)
-        printf '%sUsage:%s%s\n' "$B" "$R" "${line#Usage:}" ;;
-      "Notes:")
-        printf '%sNotes:%s\n' "$B" "$R" ;;
-      *)
-        if [[ "$line" =~ ^([A-Z][A-Z\ \&]*)(.*)$ ]] && [ "${#BASH_REMATCH[1]}" -ge 2 ]; then
-          printf '%s%s%s%s\n' "$B" "${BASH_REMATCH[1]}" "$R" "${BASH_REMATCH[2]}"
-        elif [[ "$line" =~ ^(\ \ |\ \ \ \ )([^\ ]+(\ [^\ ]+)*)(\ \ +)(.*)$ ]]; then
-          printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$(_help_style_name "${BASH_REMATCH[2]}")" "${BASH_REMATCH[4]}" "$(_help_style_desc "${BASH_REMATCH[5]}")"
-        elif [[ "$line" =~ ^(\ \ )([^\ ].*:)$ ]]; then
-          printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$B" "${BASH_REMATCH[2]}" "$R"
-        else
-          printf '%s\n' "$line"
-        fi
-        ;;
-    esac
+    _help_render_line "$line"
   done < <(_help_source_text)
+}
+
+# _help_render_line — style a single line of _help_source_text() output the
+# way usage() always has (bold caps-header, bold+underlined name-tokens,
+# dimmed parentheticals). Shared by usage() and help_command() so both
+# renderers apply identical styling from one code path.
+# Args:   $1 raw help-reference line
+# Stdout: styled line (uses globals B/R/U/UR/D set by _help_style_vars)
+# Return: 0
+_help_render_line() {
+  local line="$1"
+  case "$line" in
+    "")
+      printf '\n' ;;
+    "Usage:"*)
+      printf '%sUsage:%s%s\n' "$B" "$R" "${line#Usage:}" ;;
+    "Notes:")
+      printf '%sNotes:%s\n' "$B" "$R" ;;
+    *)
+      if [[ "$line" =~ ^([A-Z][A-Z\ \&]*)(.*)$ ]] && [ "${#BASH_REMATCH[1]}" -ge 2 ]; then
+        printf '%s%s%s%s\n' "$B" "${BASH_REMATCH[1]}" "$R" "${BASH_REMATCH[2]}"
+      elif [[ "$line" =~ ^(\ \ |\ \ \ \ )([^\ ]+(\ [^\ ]+)*)(\ \ +)(.*)$ ]]; then
+        printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$(_help_style_name "${BASH_REMATCH[2]}")" "${BASH_REMATCH[4]}" "$(_help_style_desc "${BASH_REMATCH[5]}")"
+      elif [[ "$line" =~ ^(\ \ )([^\ ].*:)$ ]]; then
+        printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$B" "${BASH_REMATCH[2]}" "$R"
+      else
+        printf '%s\n' "$line"
+      fi
+      ;;
+  esac
+}
+
+# help_command — print the reference block for a single command's group
+# (`brewmaster help <command>`), sliced from the same _help_source_text()
+# that drives usage(), styled through the same helpers. A group that
+# covers several command tokens (e.g. SNAPSHOT & ROLLBACK) is printed in
+# full regardless of which of its tokens was requested.
+# Args:   $1 command name (upgrade|snapshot|deps|profile|cleanup|why|bloat|log|report)
+# Stdout: the matching group's block, styled; nothing on an unknown command
+# Return: 0 on a known command, 1 (with a stderr message) on an unknown one
+help_command() {
+  local target="$1" group="" line hdr in_block=false found=false
+  case "$target" in
+    upgrade)         group="UPGRADE" ;;
+    deps)             group="DEPENDENCY RISK" ;;
+    snapshot)         group="SNAPSHOT & ROLLBACK" ;;
+    profile)          group="PROFILES" ;;
+    cleanup|why|bloat) group="CLEANUP & INTENT" ;;
+    log|report)       group="AUDIT LOG & REPORTS" ;;
+    *)
+      echo "Unknown command: $target" >&2
+      return 1
+      ;;
+  esac
+
+  _help_style_vars
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^([A-Z][A-Z\ \&]*)(.*)$ ]] && [ "${#BASH_REMATCH[1]}" -ge 2 ]; then
+      hdr="${BASH_REMATCH[1]% }"
+      if $in_block; then
+        break
+      elif [ "$hdr" = "$group" ]; then
+        in_block=true
+        found=true
+      else
+        continue
+      fi
+    fi
+    $in_block && _help_render_line "$line"
+  done < <(_help_source_text)
+
+  if ! $found; then
+    echo "Unknown command: $target" >&2
+    return 1
+  fi
+  return 0
 }
 
 # logv — print a debug line to stderr when VERBOSE is true.

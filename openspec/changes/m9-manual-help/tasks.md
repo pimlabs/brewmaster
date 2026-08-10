@@ -22,12 +22,12 @@
 
 ## 3. `brewmaster help [command]` dispatch
 
-- [ ] 3.1 Add a command-name → group-name lookup in `bin/brewmaster`
+- [x] 3.1 Add a command-name → group-name lookup in `bin/brewmaster`
       covering every command listed across all groups (`upgrade`,
       `snapshot save|list|diff|restore|delete`, `deps show`,
       `profile list|create|edit|diff|validate`, `cleanup`, `why`, `bloat`,
       `log`, `report`)
-- [ ] 3.2 Implement `help_command()`: slice `_help_source_text()` output
+- [x] 3.2 Implement `help_command()`: slice `_help_source_text()` output
       by group header, print the matching group's block through the
       existing `_help_style_name`/`_help_style_desc` helpers
 - [ ] 3.3 Add `help` dispatch case: `brewmaster help` (no args) calls
