@@ -41,6 +41,10 @@ source "$LIB/core/semver.sh"
 # shellcheck source=../lib/brewmaster/core/ui.sh
 source "$LIB/core/ui.sh"
 ui_color_init
+# Overwrite with distinguishable sentinels: ui_color_init sets these to ""
+# under a non-TTY (this test's own $(...) capture), which would make every
+# tag pass the same "empty" assertion regardless of which one was chosen.
+COLOR_OK="OK" COLOR_WARN="WARN" COLOR_HIGH="HIGH"
 # shellcheck source=../lib/brewmaster/audit.sh
 source "$LIB/audit.sh"
 # shellcheck source=../lib/brewmaster/snapshot.sh
@@ -102,6 +106,12 @@ printf 'git\t2.44.0\n' > "$fake_nonode"
 jq -n '{ label:"nonode", brew_version:"4.0", package_count:1 }' > "${fake_nonode%.txt}.meta.json"
 diff_out3="$(snapshot_diff "$fake_nonode")"
 echo "$diff_out3" | grep -q 'NEW'         && ok || bad "diff: NEW for packages added since snapshot"
+
+# --- 9a-c. _snapshot_tag_color: NEW=OK, REMOVED=HIGH, others=WARN ---
+[ "$(_snapshot_tag_color NEW)" = "OK" ]        && ok || bad "tag_color NEW: expected OK"
+[ "$(_snapshot_tag_color REMOVED)" = "HIGH" ]  && ok || bad "tag_color REMOVED: expected HIGH"
+[ "$(_snapshot_tag_color UPGRADE)" = "WARN" ]  && ok || bad "tag_color UPGRADE: expected WARN"
+[ "$(_snapshot_tag_color DOWNGRADE)" = "WARN" ] && ok || bad "tag_color DOWNGRADE: expected WARN"
 
 # --- 10. snapshot_restore --dry-run prints plan, brew install NOT called ---
 brew_called=false

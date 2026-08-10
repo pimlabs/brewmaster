@@ -115,12 +115,20 @@
 
 ## 7. Migrate snapshot.sh
 
-- [ ] 7.1 `snapshot_list`'s table -> `ui_table_header`/`ui_table_row`
-- [ ] 7.2 `snapshot_diff`'s table -> `ui_table_header`/`ui_table_row`,
-      TAG column colored (`NEW`=`COLOR_OK`, `REMOVED`=`COLOR_HIGH`,
-      upgraded/downgraded=`COLOR_WARN`)
-- [ ] 7.3 Update `tests/test_snapshot.sh`: strip ANSI before assertions,
-      add a case asserting TAG color per kind
+- [x] 7.1 `snapshot_list`'s table -> `ui_table_header`/`ui_table_row`
+- [x] 7.2 Reconsidered scope: `snapshot_diff` was never a header+rule+rows
+      table (no header row at all) and its row format mixes fixed
+      decoration (`  ->  `, `[...]`) with padded columns in a shape
+      `ui_table_row` doesn't fit cleanly. Left the `printf` structure
+      as-is and applied `ui_colorize` only to the TAG value (the actual
+      goal): added `_snapshot_tag_color` (`NEW`=`COLOR_OK`,
+      `REMOVED`=`COLOR_HIGH`, `UPGRADE`/`DOWNGRADE`/`CHANGED`=`COLOR_WARN`)
+- [x] 7.3 `tests/test_snapshot.sh` sources `core/ui.sh` and overrides
+      `COLOR_OK`/`WARN`/`HIGH` with sentinels; confirmed existing
+      `grep -q 'REMOVED'`-style substring assertions still pass (the
+      sentinel text concatenates right before the tag, e.g.
+      "HIGHREMOVED", which still contains "REMOVED"). Added 4 cases
+      asserting `_snapshot_tag_color` per tag
 
 ## 8. Verification
 
