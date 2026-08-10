@@ -1,15 +1,18 @@
 # AGENTS.md — brewmaster
 
-> Read PHILOSOPHY.md before proposing or implementing any feature.
-> Read docs/ARCHIVE_ROADMAP.md before touching any v1 code.
+> Read `PHILOSOPHY.md` before proposing or implementing any feature.
+> Read `ROADMAP.md` for current milestone scope and upcoming work.
+> Read `docs/ARCHIVE_ROADMAP.md` before touching any M0–M5 code.
 
 ---
 
 ## What This Project Is
 
-`brewmaster` is a Bash CLI tool for selective Homebrew package upgrades on macOS, built around the question: *"What is safe, and what belongs?"*
+`brewmaster` is a Bash CLI tool for selective Homebrew package upgrades on macOS,
+built around the question: *"What is safe, and what belongs?"*
 
-It is a **personal, present-tense, descriptive** tool. It is not a dotfiles manager, cross-machine sync tool, or dev environment manager.
+It is a **personal, present-tense, descriptive** tool. It is not a dotfiles manager,
+cross-machine sync tool, or dev environment manager.
 
 ---
 
@@ -21,6 +24,7 @@ lib/brewmaster/core/    ← modular logic (one file per concern)
 config/                 ← default config templates
 tests/                  ← test functions (source + assert pattern)
 docs/                   ← ARCHIVE_ROADMAP.md and other references
+openspec/               ← OpenSpec change proposals (do not edit manually)
 ```
 
 ---
@@ -77,31 +81,49 @@ Tests in `tests/` reference these contracts — do not break them.
 
 ---
 
-## Current Scope: M6 and M7
+## Current Scope
 
-See ROADMAP.md for full milestone details. In summary:
+See `ROADMAP.md` for the active milestone and full upcoming milestone details.
+Do not implement anything outside the current milestone without a proposal first.
+Before proposing anything new, apply the four-question test in `PHILOSOPHY.md`.
 
-**M6 — Reliability & Correctness (v0.7.0)**
-- Fix `snapshot_restore` versioned install bug
-- Fix `cleanup_bloat` variable shadowing
-- Fix `_cleanup_last_access` O(n) brew calls
-- Fix tmpfile leak in snapshot diff/restore
+---
 
-**M7 — Polish & Completions (v0.8.0)**
-- Progress indicator in `run_upgrade`
-- Shell completions (bash, zsh, fish)
-- Man page (`docs/brewmaster.1`)
-- Empty array pattern cleanup
-- Error handling audit
+## Implementation Workflow (OpenSpec)
 
-Do not implement features outside M6 and M7 without a proposal in ROADMAP.md first.
-Before proposing anything new, apply the test in PHILOSOPHY.md.
+This project uses [OpenSpec](https://github.com/Fission-AI/OpenSpec) for
+spec-driven development. Every milestone is implemented through a proposal
+cycle — never by jumping directly to code.
+
+### Required workflow for every milestone
+
+```
+1. Read ROADMAP.md — understand the milestone scope, files, and acceptance criteria
+2. Run: /opsx:propose "<milestone-name>"
+   OpenSpec will generate:
+     openspec/changes/<milestone-name>/proposal.md   ← why and what
+     openspec/changes/<milestone-name>/specs/        ← requirements and scenarios
+     openspec/changes/<milestone-name>/design.md     ← technical approach
+     openspec/changes/<milestone-name>/tasks.md      ← implementation checklist
+3. Review proposal with the maintainer before proceeding
+4. Run: /opsx:apply
+   Implement tasks one by one — one commit per task
+5. Run: /opsx:archive
+   Archive the proposal after all tasks are done and tests pass
+```
+
+### Rules
+
+- Never implement a milestone without an active OpenSpec proposal
+- Never modify `openspec/` files manually — use `/opsx:` commands only
+- Proposal content must stay consistent with ROADMAP.md scope — do not expand scope
+- If the ROADMAP scope is unclear, ask before proposing
 
 ---
 
 ## Explicitly Out of Scope
 
-Do not propose these. The reasoning is in PHILOSOPHY.md.
+Do not propose these. The full reasoning is in `PHILOSOPHY.md`.
 
 - Multi-driver support (npm, pip, cargo, gem)
 - Cross-machine sync or machine-as-code export

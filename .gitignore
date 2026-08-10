@@ -27,3 +27,6 @@
 
 # brewmaster runtime
 /tmp/brewmaster-depgraph-*
+
+# Local Claude Code settings (personal permissions, machine-specific)
+.claude/settings.local.json
