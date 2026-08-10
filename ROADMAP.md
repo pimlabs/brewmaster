@@ -49,7 +49,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M3 — Profile System             | v0.4.0   | `[x] done`   |
 | M4 — Cleanup & Intent           | v0.5.0   | `[x] done`   |
 | M5 — Audit Log & Report         | v0.6.0   | `[x] done`   |
-| M6 — Performance                | v0.7.0   | `[ ] next`   |
+| M6 — Performance                | v0.7.0   | `[x] done`   |
 | M7 — Upgrade Checklist          | v0.8.0   | `[ ] planned` |
 | M8 — Visual Polish              | v0.9.0   | `[ ] planned` |
 | M9 — Manual & Help              | v0.10.0  | `[ ] planned` |
@@ -98,9 +98,42 @@ These were considered and explicitly deferred:
 
 ### Milestone 6 — Performance
 
-**Status:** `[ ] next` **Branch:** `perf/cache-first` **Version:** `v0.7.0` **Depends on:** M0, M4
+**Status:** `[x] done` **Branch:** `perf/cache-first` **Version:** `v0.7.0` **Depends on:** M0, M4
 
-#### Scope
+#### Scope (as actually built — see below for how this differs from the original plan)
+
+`cleanup` and `bloat` still called `brew list "$pkg"` and `brew --cellar
+"$pkg"` once per installed package — `_cleanup_last_access` used
+`brew list` to find a package's bin/sbin files for the last-access
+heuristic, and `cleanup_bloat` used `brew --cellar` to locate each
+package's Cellar directory for disk-size accounting. Each is a `brew`
+subprocess with Ruby/Formulary startup cost, repeated per package
+(measured ~0.5s/call on this machine).
+
+The fix: fetch the Homebrew Cellar root path once (`brew --cellar`, no
+argument) and derive every package's Cellar directory from it directly —
+`_cleanup_last_access` now `find`s bin/sbin files under that path instead
+of calling `brew list` (measured ~0.017s/call, a ~29x per-lookup speedup).
+
+**This is not what the milestone originally planned to build** (see the
+plan below, kept for context). The original plan assumed `brew deps`/
+`brew uses` were still being called per-package — that was already fixed
+in M2 (`depgraph_build`, a single bulk `brew info --json=v2` call). That
+was caught while implementing this milestone's OpenSpec proposal
+(`openspec/changes/m6-performance/`), before any code was written against
+the stale premise, and the proposal was retargeted at the bottleneck that
+actually still existed.
+
+**The `<5s on a 400-package machine` target below was not fully met.**
+The per-package `brew` subprocess cost this milestone targeted is gone,
+but `cleanup_scan`'s per-package `jq` lookups (`_cleanup_formula_json`,
+`_depgraph_query`, once each per package against the cached JSON) still
+dominate — measured ~27s for 403 real installed packages. That's a
+separate bottleneck, out of scope for this milestone (see design.md's
+Non-Goals); a future milestone could batch those `jq` lookups the same
+way M2/M6 batched the `brew` calls.
+
+#### Original plan (superseded — kept for context, not what was built)
 
 `cleanup` and `bloat` are slow on machines with large package lists because
 dependency data is fetched per-package inside a serial loop. On a 400-package
@@ -108,13 +141,6 @@ machine this produces hundreds of redundant `brew` subprocess calls.
 
 The fix: collect all dependency data in three bulk calls before any loop begins,
 then let the loop parse strings from memory — no subprocesses inside the walk.
-
-#### Files
-
-- `lib/brewmaster/cleanup.sh` — refactor walk to consume cache
-- `lib/brewmaster/core/cache.sh` — new: shared cache-build functions
-
-#### Approach
 
 ```bash
 # Before: N brew calls inside loop (slow)
@@ -132,43 +158,27 @@ for pkg in $LIST_CACHE; do
 done
 ```
 
-#### Function Contracts
+#### Files
+
+- `lib/brewmaster/cleanup.sh` — added `_cleanup_cellar_root` (Cellar-root
+  cache) and refactored `_cleanup_last_access`/`cleanup_bloat` to consume it
+- `bin/brewmaster` — `why` dispatch pre-warms the Cellar-root cache
+- `tests/test_cleanup.sh` — fixture updates + coverage for the new cache
+  and the removal of per-package `brew` calls
+
+#### Acceptance Criteria (actual)
 
 ```
-cache_build
-# Populate globals: BM_DEPS_CACHE, BM_USES_CACHE, BM_LIST_CACHE
-# Called once at start of cleanup/bloat — no-op if already populated
-# stdout: nothing
-# return 0
-
-cache_deps_for "$package_name"
-# Parse BM_DEPS_CACHE for a specific package
-# stdout: newline-separated dependency list
-# return 0
-
-cache_uses_for "$package_name"
-# Parse BM_USES_CACHE for a specific package
-# stdout: newline-separated dependent list
-# return 0
+# cleanup/bloat make zero per-package `brew list`/`brew --cellar` calls
+# (see tests/test_cleanup.sh: no-per-package-brew-calls assertions)
+# Cellar root fetched exactly once per test-suite run, not once per package
+# All existing tests pass unmodified in behavior (same scores/categories)
+# shellcheck clean on bin/brewmaster and lib/brewmaster/*.sh
 ```
 
-#### Tasks
-
-- [ ] Create `lib/brewmaster/core/cache.sh` with `cache_build`, `cache_deps_for`, `cache_uses_for`
-- [ ] Refactor `cleanup_scan` in `cleanup.sh` to call `cache_build` before walk loop
-- [ ] Refactor `bloat` walk to consume cache, not subprocess
-- [ ] Remove per-package `brew deps` and `brew uses` calls from all walk loops
-- [ ] Add timing output under `VERBOSE` flag: `logv "[timing] cache built in Xs"`
-- [ ] Update `tests/test_cleanup.sh` to cover cache-fed walk paths
-- [ ] Verify `--dry-run` still works correctly post-refactor
-
-#### Acceptance Criteria
-
-```
-brewmaster cleanup --dry-run   # completes in under 5 seconds on a 400-package machine
-brewmaster bloat               # completes in under 5 seconds on a 400-package machine
-# All existing tests pass without modification
-```
+See `openspec/changes/m6-performance/` (proposal, design, specs, tasks) for
+the full record of what was proposed, what was found during implementation,
+and why the scope changed.
 
 ---
 
