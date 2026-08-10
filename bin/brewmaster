@@ -47,6 +47,7 @@ AUDIT_PACKAGE=""
 AUDIT_ACTION=""
 AUDIT_SINCE=""
 AUDIT_FORMAT="table"
+HELP_TARGET=""
 
 # _help_style_vars — set B/R/U/UR/D to tput sequences, or "" when styling
 # should be suppressed (non-TTY, NO_COLOR set, or no tput available).
@@ -224,6 +225,10 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
                 PROFILE_SUBCMD="$1"; shift
               fi ;;
     cleanup|why|bloat|log|report) COMMAND="$1"; shift ;;
+    help)     COMMAND="$1"; shift
+              if [[ $# -gt 0 && "$1" != -* ]]; then
+                HELP_TARGET="$1"; shift
+              fi ;;
     *) echo "Unknown command: $1" >&2; usage; exit 1 ;;
   esac
 fi
@@ -343,4 +348,10 @@ case "$COMMAND" in
   bloat) cleanup_bloat ;;
   log) audit_query ;;
   report) audit_report ;;
+  help)
+    if [[ -n "$HELP_TARGET" ]]; then
+      help_command "$HELP_TARGET" || exit 1
+    else
+      usage
+    fi ;;
 esac

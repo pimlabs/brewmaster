@@ -30,7 +30,7 @@
 - [x] 3.2 Implement `help_command()`: slice `_help_source_text()` output
       by group header, print the matching group's block through the
       existing `_help_style_name`/`_help_style_desc` helpers
-- [ ] 3.3 Add `help` dispatch case: `brewmaster help` (no args) calls
+- [x] 3.3 Add `help` dispatch case: `brewmaster help` (no args) calls
       `usage()`; `brewmaster help <command>` calls `help_command
       <command>`; unknown command prints an error to stderr and exits 1
 - [ ] 3.4 Add fixtures under `tests/fixtures/help-<command>.txt` (or one
