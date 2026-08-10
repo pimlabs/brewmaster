@@ -44,7 +44,7 @@
       `bin/brewmaster:5`, set to the date this task is implemented
 - [x] 4.2 Change the `--version`/`-V` output to
       `brewmaster ${BREWMASTER_VERSION} (built ${BUILD_DATE})`
-- [ ] 4.3 Add a `tests/test_cli.sh` assertion matching the new
+- [x] 4.3 Add a `tests/test_cli.sh` assertion matching the new
       `--version` output format
 
 ## 5. Man page generator

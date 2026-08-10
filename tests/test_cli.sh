@@ -124,5 +124,11 @@ echo "$err" | grep -q 'Unknown command: nosuchcommand' && ok || bad "help nosuch
 diff <(NO_COLOR=1 "$BM" help) <(NO_COLOR=1 "$BM" --help) >/dev/null \
   && ok || bad "bare help should match --help output"
 
+# 18. `--version`/`-V` output includes the build date
+out="$("$BM" --version)"
+echo "$out" | grep -qE '^brewmaster [0-9]+\.[0-9]+\.[0-9]+ \(built [0-9]{4}-[0-9]{2}-[0-9]{2}\)$' \
+  && ok || bad "--version should print 'brewmaster <version> (built <date>)'"
+[ "$("$BM" -V)" = "$out" ] && ok || bad "-V should match --version output"
+
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))
