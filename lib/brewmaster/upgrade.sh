@@ -67,16 +67,17 @@ run_upgrade() {
             profile_filter_package "$name" || { logv "Skip (profile filter): $name"; continue; }
           fi
           if $CHECK_DEPS; then
-            local score; score="$(depgraph_risk_score "$name" "$kind")"
+            local score color; score="$(depgraph_risk_score "$name" "$kind")"
+            color="$(_depgraph_risk_color "$score")"
             if (( score >= RISK_THRESHOLD )); then
-              echo "Warning: skipping $name (risk ${score}/10 — HIGH)" >&2
+              echo "Warning: skipping $name (risk ${color}${score}/10${COLOR_RESET} — HIGH)" >&2
               logv "Dependents: $(depgraph_is_safe "$name" || true)"
               continue
             elif [[ -n "${PROFILE_NAME:-}" ]] && (( PROFILE_MAX_RISK < 10 )) && (( score > PROFILE_MAX_RISK )); then
-              echo "Warning: skipping $name (risk ${score}/10 > profile max ${PROFILE_MAX_RISK})" >&2
+              echo "Warning: skipping $name (risk ${color}${score}/10${COLOR_RESET} > profile max ${PROFILE_MAX_RISK})" >&2
               continue
             elif (( score >= 4 )); then
-              echo "Warning: $name risk ${score}/10 (MEDIUM)" >&2
+              echo "Warning: $name risk ${color}${score}/10${COLOR_RESET} (MEDIUM)" >&2
               if ! $YES_FLAG; then
                 printf "Upgrade %s anyway? [y/N] " "$name" >&2
                 local ans; read -r ans </dev/tty
@@ -200,10 +201,10 @@ run_upgrade() {
   done
 
   if (( fail > 0 )); then
-    echo "Done with ${fail} failure(s)." >&2
+    ui_summary "Done with ${fail} failure(s)." >&2
     return 1
   fi
 
-  echo "Done."
+  ui_summary "Done."
   return 0
 }

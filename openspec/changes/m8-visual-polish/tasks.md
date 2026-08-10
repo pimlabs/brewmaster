@@ -71,14 +71,24 @@
 
 ## 4. Migrate upgrade.sh (progress, summary)
 
-- [ ] 4.1 `run_upgrade`'s `[N/total] ==> brew upgrade` line ->
-      `ui_progress`
-- [ ] 4.2 `run_upgrade`'s risk warnings (MEDIUM/HIGH) -> colored via the
-      same thresholds as `depgraph_report`
-- [ ] 4.3 Final "Done."/"Done with N failure(s)" line -> `ui_summary`
-- [ ] 4.4 Update `tests/test_cli.sh`, `tests/test_profile.sh`,
-      `tests/test_audit.sh`: strip ANSI before assertions on upgrade
-      output
+- [x] 4.1 Reconsidered after reading the code: `run_upgrade`'s
+      `[%d/%d] ==> brew upgrade %s\n` line ends with a real newline and
+      stays on screen as a permanent per-package log entry — unlike
+      `ui_progress`'s in-place, overwritten-next-iteration contract. The
+      leading `\r\033[K` here just defensively clears any stray partial
+      line, it isn't the same pattern despite the superficial format
+      similarity. Left unchanged rather than forcing it into `ui_progress`
+- [x] 4.2 `run_upgrade`'s MEDIUM/HIGH risk warnings -> colored via
+      `_depgraph_risk_color` (same thresholds `depgraph_report` uses)
+- [x] 4.3 Final "Done."/"Done with N failure(s)" line -> `ui_summary`
+- [x] 4.4 No test changes needed: `ui_color_init`'s `[ -t 1 ]` check means
+      every `$(...)`-captured test output is already colorless (command
+      substitution is never a TTY) — confirmed `test_cli.sh`,
+      `test_profile.sh`, `test_audit.sh` still pass unmodified. The
+      ANSI-strip mitigation from design.md's Risks section turns out to
+      be unnecessary in practice; only the two direct color-function unit
+      tests (2.3, 3.5) needed sentinel overrides, and those don't need
+      stripping either since they assert exact sentinel equality
 
 ## 5. Migrate profile.sh
 
