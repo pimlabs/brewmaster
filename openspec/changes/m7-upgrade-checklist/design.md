@@ -58,24 +58,33 @@ milestone describes:
   `checklist_select` contract in `ROADMAP.md` ("Degrades gracefully
   without fzf: print table, single y/N prompt").
 
-- **Reuse the existing `read -r ans </dev/tty` pattern** already used for
-  the MEDIUM-risk and profile-confirm prompts in this file, rather than
-  inventing a second confirmation mechanism. Consistent within the file;
-  also means the new prompt fails the same way those already do when
-  there's no controlling TTY (see Risks).
+- **The fallback prompt reads from plain stdin (`read -r ans`), not
+  `/dev/tty`.** The two existing prompts in this file (MEDIUM-risk,
+  profile-confirm) need `</dev/tty` because they run inside
+  `while ... done <<<"$out"` — the herestring redirects stdin for the
+  whole loop body, so a plain `read` there would consume `brew outdated`
+  output instead of a real answer. The new review-gate prompt runs after
+  that loop has already finished, so it isn't affected and can read real
+  stdin directly — matching the plain `read -r ans` already used in
+  `snapshot.sh`'s delete confirmation, and making it possible to test by
+  piping input instead of needing a real controlling terminal.
 
 ## Risks / Trade-offs
 
 - **[Risk] Breaks unattended callers (cron, CI, scripts) that run
-  `brewmaster --minor` (or similar) today without `--yes` and without a
-  TTY.** Today that works with zero prompts; after this change, the
-  review step tries to read from `/dev/tty`, which doesn't exist in that
-  context, and the read fails. **Mitigation**: this is the explicit
-  trade-off the proposal makes (see BREAKING note); it can't be fully
-  mitigated without abandoning the "review by default" goal. Worth
-  calling out prominently in the changelog/release notes when this ships,
-  so existing automation gets fixed (`--yes` added) rather than silently
-  failing.
+  `brewmaster --minor` (or similar) today without `--yes`.** Today that
+  works with zero prompts; after this change, the review step needs an
+  answer from stdin. With `fzf` installed but no real terminal, `fzf`
+  itself will error; without `fzf` and with stdin closed/empty (the
+  common unattended case), `read` hits EOF, the answer doesn't match
+  `y`/`Y`, and the run safely declines ("Nothing selected.") rather than
+  upgrading anything. **Mitigation**: failing safe (decline, not silently
+  upgrade) is the best available outcome short of abandoning the "review
+  by default" goal — but it still means unattended callers get nothing
+  upgraded instead of what they had before (unprompted, always-upgrade).
+  Worth calling out prominently in the changelog/release notes when this
+  ships, so existing automation gets fixed (`--yes` added) rather than
+  silently doing nothing.
 
 - **[Risk] `--interactive`/`-i` becoming inert for `upgrade` is a silent
   behavior change** — a script that still passes `-i` expecting the old

@@ -50,7 +50,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M4 — Cleanup & Intent           | v0.5.0   | `[x] done`   |
 | M5 — Audit Log & Report         | v0.6.0   | `[x] done`   |
 | M6 — Performance                | v0.7.0   | `[x] done`   |
-| M7 — Upgrade Checklist          | v0.8.0   | `[ ] planned` |
+| M7 — Upgrade Checklist          | v0.8.0   | `[x] done`   |
 | M8 — Visual Polish              | v0.9.0   | `[ ] planned` |
 | M9 — Manual & Help              | v0.10.0  | `[ ] planned` |
 
@@ -184,9 +184,39 @@ and why the scope changed.
 
 ### Milestone 7 — Upgrade Checklist
 
-**Status:** `[ ] planned` **Branch:** `feat/checklist` **Version:** `v0.8.0` **Depends on:** M0, M2, M3
+**Status:** `[x] done` **Branch:** `feat/checklist` **Version:** `v0.8.0` **Depends on:** M0, M2, M3
 
-#### Scope
+#### Scope (as actually built — see below for how this differs from the original plan)
+
+`run_upgrade` already collected every candidate upfront (not a sequential
+per-package prompt, as originally described) and already had an `fzf`
+multi-select path — but only opt-in via `--interactive`/`-i`, and it
+hard-`exit 1`'d if `fzf` wasn't installed. Without `-i`, upgrades executed
+immediately with no confirmation at all.
+
+**BREAKING**: the review step is now the default for every `upgrade`
+invocation with candidates, not opt-in. `fzf` multi-select when
+installed; a plain table + single `[y/N]` for the whole batch otherwise
+(no more hard exit on missing `fzf`). `--yes` skips review entirely,
+preserving the old "just run" behavior for scripts/automation —
+unattended callers that don't pass `--yes` will now get prompted (and,
+without a TTY/piped answer, will safely decline rather than upgrade).
+`--dry-run` is unaffected: it still shows the full table and returns
+before any review step, and no longer touches `fzf` at all even combined
+with `--interactive` (which is now a no-op for `upgrade`).
+
+This shape (review-by-default, `--yes` to opt out) was chosen to match
+how `cleanup` already works in this codebase — default is look-before-you
+-act — rather than the "opt-in checklist" the original plan described.
+Confirmed with the user before writing the proposal.
+
+One more originally-assumed "existing behavior" that turned out not to
+exist: `run_upgrade` does not (and still does not, after this milestone)
+take a snapshot before executing — only `cleanup_main` does that. Adding
+snapshot-before-upgrade would be a separate, more involved change; out of
+scope here.
+
+#### Original plan (superseded — kept for context, not what was built)
 
 Current upgrade flow prompts confirmation per-package sequentially.
 On a large upgrade batch the user cannot see the full picture before approving
@@ -194,14 +224,6 @@ individual items — one confirmation dialog at a time.
 
 Replace with a single upfront checklist: show all candidates, let the user
 review and deselect, then execute once.
-
-#### Files
-
-- `bin/brewmaster` — replace sequential confirm loop with checklist flow
-- `lib/brewmaster/core/upgrade.sh` — add `upgrade_from_selection`
-- `lib/brewmaster/checklist.sh` — new: checklist rendering and fzf integration
-
-#### Function Contracts
 
 ```
 checklist_build "$candidates"
@@ -218,24 +240,28 @@ upgrade_from_selection "$selected_packages"
 # Respects $DRY_RUN
 ```
 
-#### Tasks
+#### Files
 
-- [ ] Collect all upgrade candidates before any confirmation prompt
-- [ ] Display full candidate table: package, current version, target version, semver bump, risk score
-- [ ] `fzf` multi-select: user can deselect individual packages before confirming
-- [ ] Non-interactive fallback: print table, single `y/N` to proceed with all
-- [ ] `--yes` flag bypasses checklist entirely (existing behavior preserved)
-- [ ] Snapshot taken automatically before any upgrade executes (existing behavior)
-- [ ] Update `tests/test_cli.sh` to cover checklist flow and fallback path
+- `lib/brewmaster/upgrade.sh` — `run_upgrade`'s review gate (fzf when
+  available, plain table + `[y/N]` fallback otherwise), skipped by
+  `--dry-run`/`--yes`
+- `bin/brewmaster` — help text for `--interactive`/`-i` and `--yes`/`-y`
+  under UPGRADE and PROFILES
+- `tests/test_cli.sh`, `tests/test_audit.sh`, `tests/test_profile.sh` —
+  updated/added coverage for the new default gate
 
-#### Acceptance Criteria
+#### Acceptance Criteria (actual)
 
 ```
-brewmaster --dry-run          # shows full candidate table before any action
-brewmaster --minor            # shows checklist, waits for confirm, then upgrades
-brewmaster --minor --yes      # skips checklist, upgrades all (existing behavior)
+brewmaster --dry-run          # shows full candidate table, no review gate, no fzf touched
+brewmaster --minor            # shows review (fzf or table+[y/N]), waits, then upgrades
+brewmaster --minor --yes      # skips review, upgrades all (preserves old default behavior)
 # Fallback works correctly when fzf is not installed
 ```
+
+See `openspec/changes/archive/` (once archived) for the full proposal,
+design, specs, and tasks record, including what was found during
+implementation and why the scope changed.
 
 ---
 
