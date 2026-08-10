@@ -92,10 +92,10 @@
 
 ## 5. Migrate profile.sh
 
-- [ ] 5.1 `profile_list`'s table -> `ui_table_header`/`ui_table_row`
+- [x] 5.1 `profile_list`'s table -> `ui_table_header`/`ui_table_row`
       (no color — no risk/score value in this table)
-- [ ] 5.2 Update `tests/test_profile.sh`: strip ANSI if any color-neutral
-      styling is applied, confirm column output unchanged
+- [x] 5.2 No ANSI-stripping needed (see 4.4); `tests/test_profile.sh`
+      passes unmodified, column output confirmed unchanged
 
 ## 6. Migrate audit.sh
 
