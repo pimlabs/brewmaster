@@ -132,13 +132,14 @@
 
 ## 8. Verification
 
-- [ ] 8.1 Run the full test suite; confirm no regressions across all 7
-      files
-- [ ] 8.2 Manually run each affected command in a real TTY (colors
-      visible) and piped through `cat` (no escape sequences) to confirm
-      the NO_COLOR/non-TTY contract holds everywhere
-- [ ] 8.3 `shellcheck` clean on `bin/brewmaster` and
-      `lib/brewmaster/**/*.sh`
-- [ ] 8.4 Update `ROADMAP.md` M8 status to `[x] done`, noting the actual
-      scope (extraction + coloring of existing patterns, not new
-      spinner/UI machinery) versus the original plan
+- [x] 8.1 Full test suite: all 7 files pass, 256 assertions, 0 failures
+- [x] 8.2 Verified with a real pty (`script -q /dev/null`): `deps show`
+      shows an actual `ESC[32m` (green) sequence around a LOW risk score
+      on a real TTY, zero ESC bytes with `NO_COLOR=1` even on that same
+      real TTY, and zero ESC bytes on stdout when piped (`grep -c $'\x1b'`
+      confirmed empty in both suppressed cases)
+- [x] 8.3 `shellcheck` clean on `bin/brewmaster` and every
+      `lib/brewmaster/**/*.sh` file, including the new `core/ui.sh`
+- [x] 8.4 `ROADMAP.md` M8 status and scope description updated to reflect
+      the actual work (extraction + coloring of already-existing
+      patterns, not new spinner/UI machinery) versus the original plan
