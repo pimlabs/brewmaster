@@ -3,7 +3,7 @@
 - [x] 1.1 Create `lib/brewmaster/core/help_data.sh` with a
       `_help_source_text()` function containing the exact current heredoc
       content moved out of `bin/brewmaster`'s `usage()`
-- [ ] 1.2 Source `core/help_data.sh` from `bin/brewmaster`, refactor
+- [x] 1.2 Source `core/help_data.sh` from `bin/brewmaster`, refactor
       `usage()` to pipe `_help_source_text()` through its existing styling
       loop instead of an inline heredoc
 - [ ] 1.3 Run `bash tests/test_cli.sh` and confirm the existing `--help`
