@@ -34,14 +34,24 @@ INFO_JSON_FILE="$(mktemp)"
 UNINSTALL_LOG="$(mktemp)"
 SNAP_DIR="$(mktemp -d)"
 AUDIT_DIR="$(mktemp -d)"
-trap 'rm -rf "$MOCK_BIN" "$CELLAR_ROOT" "$INFO_JSON_FILE" "$UNINSTALL_LOG" "$SNAP_DIR" "$AUDIT_DIR"' EXIT
+BREW_CALL_LOG_PATH="$(mktemp)"
+trap 'rm -rf "$MOCK_BIN" "$CELLAR_ROOT" "$INFO_JSON_FILE" "$UNINSTALL_LOG" "$SNAP_DIR" "$AUDIT_DIR"; rm -f "$BREW_CALL_LOG_PATH"' EXIT
 
-export CELLAR_ROOT INFO_JSON_FILE UNINSTALL_LOG
+export CELLAR_ROOT INFO_JSON_FILE UNINSTALL_LOG BREW_CALL_LOG_PATH
 export BREWMASTER_SNAP_DIR="$SNAP_DIR"
 export BREWMASTER_AUDIT_LOG="$AUDIT_DIR/audit.log"
 
-mkdir -p "$CELLAR_ROOT/imagemagick" "$CELLAR_ROOT/watchman" "$CELLAR_ROOT/openssl" \
-         "$CELLAR_ROOT/git" "$CELLAR_ROOT/wget" "$CELLAR_ROOT/nosuch"
+# Real Cellar layout — _cleanup_last_access now walks these with `find`
+# instead of going through `brew list`, so the files must actually exist
+# (the mocked `stat` below matches by path substring, not real content).
+mkdir -p "$CELLAR_ROOT/imagemagick/7.1.1/bin" "$CELLAR_ROOT/watchman/2024.01.01/bin" \
+         "$CELLAR_ROOT/openssl/3.1.0/bin" "$CELLAR_ROOT/git/2.44.0/bin" \
+         "$CELLAR_ROOT/wget/1.24.5/bin" "$CELLAR_ROOT/nosuch"
+touch "$CELLAR_ROOT/imagemagick/7.1.1/bin/magick" \
+      "$CELLAR_ROOT/watchman/2024.01.01/bin/watchman" \
+      "$CELLAR_ROOT/openssl/3.1.0/bin/openssl" \
+      "$CELLAR_ROOT/git/2.44.0/bin/git" \
+      "$CELLAR_ROOT/wget/1.24.5/bin/wget"
 
 cat > "$INFO_JSON_FILE" <<EOF
 {
@@ -130,18 +140,7 @@ case "$*" in
   "list --versions")
     printf 'imagemagick 7.1.1\nwatchman 2024.01.01\n' ;;
   "list --cask")                 ;;
-  "list imagemagick")            echo "$CELLAR_ROOT/imagemagick/7.1.1/bin/magick" ;;
-  "list watchman")                echo "$CELLAR_ROOT/watchman/2024.01.01/bin/watchman" ;;
-  "list openssl")                echo "$CELLAR_ROOT/openssl/3.1.0/bin/openssl" ;;
-  "list git")                    echo "$CELLAR_ROOT/git/2.44.0/bin/git" ;;
-  "list wget")                   echo "$CELLAR_ROOT/wget/1.24.5/bin/wget" ;;
-  "list nosuch")                 ;;
-  "--cellar imagemagick")         echo "$CELLAR_ROOT/imagemagick" ;;
-  "--cellar watchman")            echo "$CELLAR_ROOT/watchman" ;;
-  "--cellar openssl")             echo "$CELLAR_ROOT/openssl" ;;
-  "--cellar git")                 echo "$CELLAR_ROOT/git" ;;
-  "--cellar wget")                echo "$CELLAR_ROOT/wget" ;;
-  "--cellar nosuch")               echo "$CELLAR_ROOT/nosuch" ;;
+  "--cellar")                    echo "$CELLAR_ROOT" ;;
   "--version")                    echo "Homebrew 4.2.0" ;;
   uninstall\ *)                   echo "$2" >> "$UNINSTALL_LOG" ;;
 esac
@@ -164,6 +163,12 @@ source "$LIB/audit.sh"
 source "$LIB/depgraph.sh"
 source "$LIB/snapshot.sh"
 source "$LIB/cleanup.sh"
+
+# Pre-warm the Cellar-root cache once, in this top-level shell (not a
+# subshell), so every later `$(...)` call below inherits it instead of
+# re-fetching — mirrors how depgraph_build/_cleanup_build are meant to be
+# called once per real command invocation.
+_cleanup_cellar_root
 
 pass=0; fail=0
 ok()  { pass=$((pass+1)); }
@@ -312,6 +317,18 @@ echo "$out" | grep -q 'Orphans'                      && ok || bad "bloat: Orphan
 echo "$out" | grep -q 'Stale'                        && ok || bad "bloat: Stale line"
 echo "$out" | grep -q 'Pinned old'                   && ok || bad "bloat: Pinned old line"
 echo "$out" | grep -q 'Est. disk reclaim'            && ok || bad "bloat: disk reclaim line"
+
+# --- 27. cleanup_bloat + cleanup_scan make no per-package `brew list`/`brew
+#         --cellar` calls (find/stat via CLEANUP_CELLAR_ROOT instead) ---
+grep -Eq '^list (imagemagick|watchman|openssl|git|wget|nosuch)$' "$BREW_CALL_LOG_PATH" \
+  && bad "no per-package 'brew list <pkg>' calls" || ok
+grep -Eq '^--cellar (imagemagick|watchman|openssl|git|wget|nosuch)$' "$BREW_CALL_LOG_PATH" \
+  && bad "no per-package 'brew --cellar <pkg>' calls" || ok
+
+# --- 28. _cleanup_cellar_root is idempotent: exactly one bare 'brew --cellar'
+#         call across the whole run above (cleanup_scan, why, cleanup_bloat) ---
+cellar_calls="$(grep -c '^--cellar$' "$BREW_CALL_LOG_PATH" || true)"
+[ "$cellar_calls" -eq 1 ] && ok || bad "cellar root fetched exactly once, got $cellar_calls calls"
 
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))
