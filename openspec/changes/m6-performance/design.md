@@ -1,92 +1,89 @@
 ## Context
 
-`cleanup_scan` (`lib/brewmaster/cleanup.sh`) and the `bloat` walk iterate over
-every installed package and, for each one, shell out to `brew deps "$pkg"`
-and `brew uses --installed "$pkg"`. Each `brew` invocation pays Ruby's
-startup cost independently of the actual work done, so on a ~400-package
-machine the walk makes ~800 subprocess calls before it can even start
-scoring risk. `brew` already exposes bulk equivalents
-(`brew deps --installed --for-each`, `brew uses --installed --eval-all`)
-that return the same data for every installed package in one call.
+`_cleanup_last_access` (`lib/brewmaster/cleanup.sh:37-49`) calls
+`brew list "$pkg"` per package to enumerate its installed files, filters
+for `bin`/`sbin` paths, then stats their atimes; if none are found it falls
+back to `brew --cellar "$pkg"` for the Cellar directory's mtime.
+`cleanup_bloat` (`lib/brewmaster/cleanup.sh:341-379`) separately calls
+`brew --cellar "$name"` per package to locate the Cellar directory for
+`du -sk` disk-usage accounting. Both run inside `cleanup_scan`/
+`cleanup_bloat`'s per-package walk loops, so each is a `brew` subprocess
+(with Ruby/Formulary startup cost) repeated once per installed package.
+
+This is the actual remaining per-package `brew`-call cost in the walk.
+The dependency/reverse-dependency lookups (`brew deps`/`brew uses`) were
+already collapsed into a single bulk call by `depgraph_build` in M2
+(`lib/brewmaster/depgraph.sh:9-13`) — that work is done and out of scope
+here.
 
 ## Goals / Non-Goals
 
 **Goals:**
-- Replace per-package `brew deps` / `brew uses` calls in the `cleanup` and
-  `bloat` walks with three bulk calls (deps, uses, list) executed once per
-  command invocation.
-- Keep `cleanup` and `bloat` output, flags, and `--dry-run` behavior
-  byte-for-byte identical to today — this is an internal data-fetch change,
-  not a behavior change.
-- Surface cache-build cost via `logv` when `VERBOSE` is set.
+- Eliminate the per-package `brew list` call in `_cleanup_last_access`.
+- Eliminate the per-package `brew --cellar` calls in both
+  `_cleanup_last_access`'s fallback and `cleanup_bloat`.
+- Keep `cleanup`, `bloat`, and `why` output byte-for-byte identical to
+  today.
 
 **Non-Goals:**
+- No changes to `depgraph.sh` — its bulk deps/uses fetch is already
+  correct (M2).
+- No changes to `du -sk` per package in `cleanup_bloat` — it's a
+  filesystem utility, not a `brew` subprocess, and far cheaper than the
+  Ruby startup cost this change targets.
 - No new CLI flags or config options.
-- No change to risk scoring, cleanup categories, or `bloat` output format
-  (covered by existing, frozen M2/M4 contracts).
-- No caching for `upgrade`, `profile`, or `snapshot` walks — only `cleanup`
-  and `bloat` consume the cache in this milestone. Extending it further is a
-  separate proposal if warranted.
-- No on-disk/persistent cache — the cache lives only for the lifetime of a
-  single command invocation.
+- No change to risk scoring, cleanup categories, or output formatting.
 
 ## Decisions
 
-- **Bulk fetch via `brew deps --installed --for-each` and
-  `brew uses --installed --eval-all`, not N parallelized calls.**
-  Alternatives considered: running the existing per-package calls in
-  parallel (`xargs -P`) would cut wall-clock time but still pays N times the
-  Ruby startup cost and adds complexity around output interleaving. Bulk
-  calls pay that cost exactly once.
+- **Cache the Cellar root via `brew --cellar` (no package argument),
+  once per invocation, in a global (`CELLAR_ROOT`).**
+  A single call gives the Homebrew Cellar root (e.g.
+  `/opt/homebrew/Cellar`); every package's Cellar directory is then just
+  `$CELLAR_ROOT/$pkg`, needing zero further `brew` calls to resolve.
 
-- **Cache stored in global bash variables (`BM_DEPS_CACHE`, `BM_USES_CACHE`,
-  `BM_LIST_CACHE`), parsed on lookup with `grep`/`awk`.**
-  Consistent with the existing global-boolean convention (`DRY_RUN`,
-  `VERBOSE`) already used across the codebase. Avoids introducing associative
-  arrays, which vary in behavior across the Bash versions brewmaster targets.
+- **Replace `brew list "$pkg"` with a direct filesystem glob under
+  `$CELLAR_ROOT/$pkg/*/bin/*` and `$CELLAR_ROOT/$pkg/*/sbin/*`.**
+  `brew list <formula>` walks the same keg directory tree and prints the
+  files bin/sbin are filtered from — this replaces a `brew` subprocess with
+  a plain Bash glob, which is not just cheaper per call but removes the
+  Ruby startup cost entirely rather than merely batching it. No bulk
+  variant of `brew list` exists that preserves per-package grouping cheaply,
+  so batching (as done for deps/uses in M2) isn't an option here; direct
+  filesystem access is the available bulk-equivalent.
 
-- **`cache_build` is idempotent: no-op if the cache is already populated.**
-  `cleanup_scan` and the `bloat` walk both need the same data; making
-  `cache_build` safe to call from either entry point (or both, if `bloat`
-  ever calls into `cleanup_scan`) avoids callers having to track whether the
-  cache was already built.
-
-- **Cache scope is a single command invocation, not persisted to disk.**
-  Package state can change between runs (installs, upgrades, removals), and
-  a stale on-disk cache would silently produce wrong risk data. Rebuilding
-  per invocation costs three `brew` calls, which is already the whole point
-  of this change — there's no correctness/performance tradeoff to make here.
+- **`_cleanup_cellar_root` is idempotent**, matching the existing
+  `_cleanup_build`/`depgraph_build` no-op-if-cached pattern already used in
+  this file, so it's safe to call from every entry point
+  (`cleanup_scan`, `cleanup_main`, `cleanup_bloat`, `why`) without tracking
+  call order between them.
 
 ## Risks / Trade-offs
 
-- **[Risk]** `brew`'s bulk-output format for `--for-each` / `--eval-all`
-  differs across Homebrew versions → cache parsing breaks silently.
-  **Mitigation**: add fixture-based tests in `tests/test_cleanup.sh` against
-  captured real `brew` output; fail loudly (non-zero return) if expected
-  markers are absent from the bulk output rather than silently returning
-  empty results.
+- **[Risk]** Direct Cellar globbing might not match `brew list`'s output
+  exactly for unusual installs (keg-only formulae, non-standard layouts).
+  **Mitigation**: glob against all version directories under
+  `$CELLAR_ROOT/$pkg/*`, matching what `brew list` walks; add fixture
+  tests asserting last-access results are unchanged for representative
+  packages.
 
-- **[Risk]** The three bulk calls are themselves slower on very large
-  installs than a handful of per-package calls would be on a small install.
-  **Mitigation**: bulk cost is O(1) in call count regardless of package
-  count, so it strictly dominates the old O(N) approach past a small
-  package count; acceptable for brewmaster's target machines (tens to
-  hundreds of packages).
+- **[Risk]** A relocated or non-standard Homebrew prefix (e.g. Linuxbrew,
+  custom `--prefix`) changes the Cellar root path.
+  **Mitigation**: unaffected — `brew --cellar` is still the source of
+  truth for the root path; it's just fetched once instead of once per
+  package.
 
-- **[Risk]** A caller reads `BM_DEPS_CACHE`/`BM_USES_CACHE` before
-  `cache_build` has run. **Mitigation**: `cache_deps_for`/`cache_uses_for`
-  are only ever called from within `cleanup_scan`/`bloat`, which call
-  `cache_build` first; no public entry point bypasses that ordering.
+- **[Risk]** A caller reads `CELLAR_ROOT` before `_cleanup_cellar_root` has
+  run. **Mitigation**: it's only read from `_cleanup_last_access` and
+  `cleanup_bloat`, both of which are only reached via entry points that
+  call `_cleanup_cellar_root` first.
 
 ## Migration Plan
 
-No data migration — this is a pure internal refactor with no on-disk format
-or CLI surface change. Roll out as a normal patch to `cleanup.sh` plus the
-new `core/cache.sh`. Rollback is a plain revert; no version gating needed
-since `cleanup`/`bloat` behavior is unchanged from the user's perspective.
+No data migration — pure internal refactor, no on-disk format or CLI
+surface change. Rollback is a plain revert; no version gating needed since
+`cleanup`/`bloat` output is unchanged from the user's perspective.
 
 ## Open Questions
 
-None blocking. Whether to extend the cache to `upgrade`/`profile` walks is
-left for a future milestone if their walks turn out to have the same
-per-package subprocess cost.
+None blocking.
