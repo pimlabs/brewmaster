@@ -40,7 +40,7 @@
 
 ## 4. `--version` build date
 
-- [ ] 4.1 Add `BUILD_DATE="YYYY-MM-DD"` next to `BREWMASTER_VERSION` at
+- [x] 4.1 Add `BUILD_DATE="YYYY-MM-DD"` next to `BREWMASTER_VERSION` at
       `bin/brewmaster:5`, set to the date this task is implemented
 - [ ] 4.2 Change the `--version`/`-V` output to
       `brewmaster ${BREWMASTER_VERSION} (built ${BUILD_DATE})`

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 BREWMASTER_VERSION="0.8.1"
+BUILD_DATE="2026-08-11"
 
 # --- Locate and source library modules (symlink-safe for Homebrew layout) ---
 # Resolved early (before usage()/help-related functions are defined or can be
