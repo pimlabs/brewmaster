@@ -45,17 +45,29 @@
 
 ## 3. Migrate cleanup.sh (cleanup score coloring, progress, section)
 
-- [ ] 3.1 `cleanup_report`'s table -> `ui_table_header`/`ui_table_row`,
-      SCORE column colored (HIGH cleanup score = `COLOR_OK`, inverted
-      from risk score's direction — see design.md)
-- [ ] 3.2 `cleanup_scan`/`cleanup_bloat`'s `[N/total]` lines ->
-      `ui_progress`
-- [ ] 3.3 `cleanup_bloat`'s summary block -> `ui_section`/`ui_summary`
-- [ ] 3.4 `why`'s dependents/last-access output -> `ui_section` for its
-      header line
-- [ ] 3.5 Update `tests/test_cleanup.sh`: strip ANSI before assertions,
-      add a case asserting cleanup score color direction (HIGH=green,
-      not red)
+- [x] 3.1 Added `_cleanup_score_color`; `cleanup_report`'s table ->
+      `ui_table_header`/`ui_table_row`, SCORE column colored (HIGH
+      cleanup score = `COLOR_OK`, inverted from risk score's direction —
+      see design.md)
+- [x] 3.2 `cleanup_scan`/`cleanup_bloat`'s `[N/total]` lines ->
+      `ui_progress`/`ui_progress_clear`. Found a third instance not in
+      the original task list: `cleanup_main`'s `--interactive` selection
+      loop (building `why` previews for `fzf`) has its own `[N/total]`
+      progress line too — migrated that as well
+- [x] 3.3 `cleanup_bloat`'s "Machine package report" line -> `ui_section`;
+      its closing "Run: brewmaster cleanup --dry-run..." line, and
+      `cleanup_main`'s closing "Run with --interactive..." line, ->
+      `ui_summary`
+- [x] 3.4 Reconsidered after reading `why()`: it's a compact key-value
+      output ("Package: x" / "Installed..." / "Dependents..."), not a
+      table with a title — wrapping "Package: $pkg" in `ui_section` would
+      add a rule line that wasn't there before and doesn't read better.
+      Left `why()` unchanged; no section header added
+- [x] 3.5 `tests/test_cleanup.sh` sources `core/ui.sh` and overrides
+      `COLOR_OK`/`WARN`/`HIGH` with sentinels (same reasoning as
+      `test_depgraph.sh`); added 3 cases asserting `_cleanup_score_color`
+      picks OK/WARN/HIGH at 8/5/2 — explicitly confirming the inverted
+      direction (score 8 -> OK not HIGH, score 2 -> HIGH not OK)
 
 ## 4. Migrate upgrade.sh (progress, summary)
 

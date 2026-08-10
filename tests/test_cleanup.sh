@@ -161,6 +161,10 @@ source "$LIB/core/semver.sh"
 source "$LIB/core/outdated.sh"
 source "$LIB/core/ui.sh"
 ui_color_init
+# Overwrite with distinguishable sentinels: ui_color_init sets these to ""
+# under a non-TTY (this test's own $(...) capture), which would make every
+# band pass the same "empty" assertion regardless of which one was chosen.
+COLOR_OK="OK" COLOR_WARN="WARN" COLOR_HIGH="HIGH"
 source "$LIB/audit.sh"
 source "$LIB/depgraph.sh"
 source "$LIB/snapshot.sh"
@@ -218,6 +222,12 @@ score="$(cleanup_score watchman)"
 
 score="$(cleanup_score openssl)"
 [ "$score" -eq 3 ] && ok || bad "cleanup_score openssl: expected 3, got $score"
+
+# --- 10a-c. _cleanup_score_color: direction is inverted from risk color
+#            (HIGH cleanup score = safer to remove = OK, not HIGH/red) ---
+[ "$(_cleanup_score_color 8)" = "OK" ]   && ok || bad "score_color 8 (HIGH): expected OK, not HIGH"
+[ "$(_cleanup_score_color 5)" = "WARN" ] && ok || bad "score_color 5 (MEDIUM): expected WARN"
+[ "$(_cleanup_score_color 2)" = "HIGH" ] && ok || bad "score_color 2 (LOW): expected HIGH, not OK"
 
 # --- 11-15. cleanup_scan categorization ---
 rows="$(cleanup_scan)"
