@@ -7,6 +7,26 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.11.0] — 2026-08-11
+
+### Added
+
+- `--help`/`brewmaster help [command]` now show real ANSI color on a
+  TTY: section headers in cyan (`COLOR_HEADER`), command/flag names in
+  blue (`COLOR_COMMAND`), layered on top of the existing bold/underline
+  styling. `NO_COLOR`, non-TTY, and no-`tput` output are unaffected.
+
+### Changed
+
+- New decorative colors live in `lib/brewmaster/core/ui.sh` alongside
+  the existing semantic `COLOR_OK`/`WARN`/`HIGH`/`MUTED` — deliberately
+  distinct `tput` codes so help styling can't be mistaken for a risk or
+  cleanup-score signal elsewhere in the same session
+- `ui.sh` is now sourced (and colors initialized) early in
+  `bin/brewmaster`, alongside `help_data.sh`, so `usage()`/
+  `help_command()` have color available even when called before argument
+  parsing runs
+
 ## [0.10.0] — 2026-08-11
 
 ### Added
