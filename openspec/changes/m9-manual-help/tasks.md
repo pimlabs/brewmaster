@@ -62,7 +62,7 @@
 
 ## 6. Drift enforcement
 
-- [ ] 6.1 Add a `tests/test_cli.sh` (or new `tests/test_docs.sh`)
+- [x] 6.1 Add a `tests/test_cli.sh` (or new `tests/test_docs.sh`)
       assertion that runs `docs/gen-man.sh`, diffs its stdout against the
       committed `docs/brewmaster.1`, and fails on any difference
 - [ ] 6.2 Run `bash tests/run_all.sh` and `shellcheck` on
