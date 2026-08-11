@@ -122,7 +122,8 @@ Notes:
     risk score (deps/--check-deps): higher = more dangerous to upgrade.
       HIGH >= threshold (default 7), MEDIUM 4-6, LOW 0-3.
     cleanup score (cleanup/why): higher = safer to remove.
-- -h/--help always prints this full reference; there is no per-subcommand --help.
+- -h/--help always prints this full reference; use `brewmaster help <command>`
+  for a shorter, per-command reference instead.
 - Pre-release (-rc.1) and +build metadata are ignored during comparison (only M.m.p).
 - Date/timestamp versions are skipped unless --allow-date is used.
 - Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).

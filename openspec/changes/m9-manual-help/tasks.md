@@ -68,7 +68,7 @@
 - [x] 6.2 Run `bash tests/run_all.sh` and `shellcheck` on
       `bin/brewmaster`, `lib/brewmaster/core/help_data.sh`, and
       `docs/gen-man.sh`; fix anything flagged
-- [ ] 6.3 Update `bin/brewmaster --help`'s own "Notes:" section — remove
+- [x] 6.3 Update `bin/brewmaster --help`'s own "Notes:" section — remove
       the now-false "there is no per-subcommand --help" line and mention
       `brewmaster help <command>` instead; re-regenerate
       `tests/fixtures/help.txt` for this final content change
