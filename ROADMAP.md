@@ -52,7 +52,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M6 — Performance                | v0.7.0   | `[x] done`   |
 | M7 — Upgrade Checklist          | v0.8.0   | `[x] done`   |
 | M8 — Visual Polish              | v0.9.0   | `[x] done`   |
-| M9 — Manual & Help              | v0.10.0  | `[ ] planned` |
+| M9 — Manual & Help              | v0.10.0  | `[x] done`   |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > Full scope, function contracts, and acceptance criteria for M0–M5:
@@ -362,33 +362,93 @@ design, specs, and tasks record.
 
 ### Milestone 9 — Manual & Help
 
-**Status:** `[ ] planned` **Branch:** `feat/manual` **Version:** `v0.10.0` **Depends on:** M0, M8
+**Status:** `[x] done` **Branch:** `feat/manual` **Version:** `v0.10.0` **Depends on:** M0, M8
 
-#### Scope
+#### Scope (as actually built — see below for how this differs from the original plan)
+
+Before proposing, checked the real state instead of trusting the plan below:
+top-level `--help` was already grouped by command area (M8's polish pass
+had already left it that way), so "replace flat `--help`" was already
+done. `docs/brewmaster.1` already existed too, but hand-written and stale
+at v0.6.1, predating profiles/audit-log/cleanup. `Formula/brewmaster.rb`
+doesn't exist in this repo at all — it lives in `pimlabs/homebrew-tap`,
+confirmed via the GitHub API, and that formula already had
+`man1.install "docs/brewmaster.1"`. So the Formula task was already done,
+just not in a place this repo can touch or take credit for.
+
+What was genuinely missing: `brewmaster help [command]` (per-command
+detail didn't exist at all — `bin/brewmaster` said so explicitly), a
+build date on `--version`, and a real single-source mechanism so
+`--help`, `help <command>`, and the man page could never drift apart
+again (the old man page already had, which is exactly the failure mode
+"no duplication" was meant to prevent).
+
+Extracted `usage()`'s heredoc verbatim into
+`lib/brewmaster/core/help_data.sh`'s `_help_source_text()` — zero
+behavior change, confirmed byte-identical against the existing `--help`
+fixture before anything else was built on top of it. Three renderers now
+read that one source: `usage()` (unchanged output), a new `help_command()`
+that slices the same text by group for `brewmaster help <command>`, and a
+new `docs/gen-man.sh` that walks the same line shapes and emits troff.
+Added one worked example per command group that didn't already have one.
+`docs/brewmaster.1` is now generated, not hand-maintained, and a test
+diffs the generator's output against the committed file so the two can
+never drift again. `--version` gained `BUILD_DATE`, a literal constant
+bumped by hand alongside `BREWMASTER_VERSION` — deliberately not computed
+from `git log` or file mtime, since an installed `brew`-built binary
+carries neither a `.git` directory nor a trustworthy mtime.
+
+A few things planned but not built, dropped once the actual repo
+boundaries were in front of us:
+
+- No `Formula/brewmaster.rb` changes — that file isn't in this repo, and
+  the copy in `pimlabs/homebrew-tap` already installs the man page.
+- No changes to `.github/workflows/release.yml`'s tap-update job — it
+  already does the right thing for the formula it owns.
+- No CI codegen job for the man page — this repo has no build step at
+  all today (shell completions are hand-committed static files too), so
+  a drift-check test riding the existing test suite was the
+  proportionate enforcement, not a new CI job.
+
+#### Original plan (superseded — kept for context, not what was built)
 
 `brewmaster help` shows flags but not workflow. There is no `man` page.
 After a break, there is no quick reference for commands and their behavior.
 
+```
+docs/brewmaster.1        # new: troff man page (single source of truth)
+bin/brewmaster            # replace flat --help with subcommand-level help
+Formula/brewmaster.rb     # install man page to man/man1/
+```
+
+Tasks as originally planned:
+
+- `brewmaster help [command]` — subcommand-level help: usage, flags, one example each
+- Top-level `brewmaster help` shows command groups, not a flat flag dump
+- `docs/brewmaster.1` — troff format, sections: NAME, SYNOPSIS, DESCRIPTION, COMMANDS, FILES, EXAMPLES
+- Formula updated to install man page to correct `man/man1/` path
+- `brewmaster --version` output includes build date
+- No duplication between `--help` and man page — both derive from same source
+
 #### Files
 
-- `docs/brewmaster.1` — new: troff man page (single source of truth)
-- `bin/brewmaster` — replace flat `--help` with subcommand-level help
-- `Formula/brewmaster.rb` — install man page to `man/man1/`
+- `lib/brewmaster/core/help_data.sh` — new: single source of truth for
+  `--help`, `help <command>`, and the man page
+- `bin/brewmaster` — `help` dispatch, `help_command()`, `BUILD_DATE`
+- `docs/gen-man.sh` — new: troff generator, reads `help_data.sh` only
+- `docs/brewmaster.1` — now generated, not hand-maintained
+- `tests/test_docs.sh` — new: drift check between generator and committed man page
 
-#### Tasks
-
-- [ ] `brewmaster help [command]` — subcommand-level help: usage, flags, one example each
-- [ ] Top-level `brewmaster help` shows command groups, not a flat flag dump
-- [ ] `docs/brewmaster.1` — troff format, sections: NAME, SYNOPSIS, DESCRIPTION, COMMANDS, FILES, EXAMPLES
-- [ ] Formula updated to install man page to correct `man/man1/` path
-- [ ] `brewmaster --version` output includes build date
-- [ ] No duplication between `--help` and man page — both derive from same source
-
-#### Acceptance Criteria
+#### Acceptance Criteria (actual)
 
 ```
 brewmaster help cleanup       # shows purpose, all flags, one practical example
 brewmaster help snapshot      # shows purpose, all flags, one practical example
-man brewmaster                # renders correctly via man(1)
+man ./docs/brewmaster.1       # renders correctly via man(1)
 brewmaster --version          # prints version and build date
+# All 8 test files pass (265 assertions); shellcheck clean on bin/brewmaster,
+# lib/brewmaster/core/help_data.sh, and docs/gen-man.sh
 ```
+
+See `openspec/changes/archive/2026-08-11-m9-manual-help/` for the full
+proposal, design, specs, and tasks record.

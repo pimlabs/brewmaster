@@ -104,5 +104,31 @@ out="$(run_no_fzf upgrade --patch --yes 2>&1)"
 echo "$out" | grep -q 'Upgrade all?' && bad "--yes: must not show review prompt" || ok
 echo "$out" | grep -q 'upgraded foo' && ok || bad "--yes: still upgrades foo"
 
+# 14. `help <command>` dispatch: known single-command group (cleanup)
+diff <(NO_COLOR=1 "$BM" help cleanup) "$DIR/fixtures/help-cleanup.txt" >/dev/null \
+  && ok || bad "help cleanup should match tests/fixtures/help-cleanup.txt"
+
+# 15. `help <command>` dispatch: known multi-command group (snapshot)
+diff <(NO_COLOR=1 "$BM" help snapshot) "$DIR/fixtures/help-snapshot.txt" >/dev/null \
+  && ok || bad "help snapshot should match tests/fixtures/help-snapshot.txt"
+
+# 16. `help <command>` dispatch: unknown command -> stderr error, exit 1, no
+#     partial help content on stdout
+out="$("$BM" help nosuchcommand 2>/dev/null)"; rc=$?
+err="$("$BM" help nosuchcommand 2>&1 >/dev/null)"
+[ -z "$out" ]                                  && ok || bad "help nosuchcommand: stdout must be empty"
+echo "$err" | grep -q 'Unknown command: nosuchcommand' && ok || bad "help nosuchcommand: stderr should name the unknown command"
+[ "$rc" -eq 1 ]                                && ok || bad "help nosuchcommand: exits 1"
+
+# 17. bare `help` (no argument) behaves exactly like --help
+diff <(NO_COLOR=1 "$BM" help) <(NO_COLOR=1 "$BM" --help) >/dev/null \
+  && ok || bad "bare help should match --help output"
+
+# 18. `--version`/`-V` output includes the build date
+out="$("$BM" --version)"
+echo "$out" | grep -qE '^brewmaster [0-9]+\.[0-9]+\.[0-9]+ \(built [0-9]{4}-[0-9]{2}-[0-9]{2}\)$' \
+  && ok || bad "--version should print 'brewmaster <version> (built <date>)'"
+[ "$("$BM" -V)" = "$out" ] && ok || bad "-V should match --version output"
+
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))

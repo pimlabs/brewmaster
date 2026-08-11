@@ -1,3 +1,17 @@
+#!/usr/bin/env bash
+# brewmaster core: shared help/reference text, source of truth for
+# --help, `brewmaster help <command>`, and the generated man page.
+# Sourced by bin/brewmaster; defines functions only.
+
+# _help_source_text — emit the raw help reference text (line grammar:
+# caps-only lines are section headers, indented "name  description" lines
+# are command/flag definitions, "(parenthetical)" spans are annotations).
+# Consumed by usage()'s styling loop and by help_command()'s group slicer.
+# Args:   none
+# Stdout: help reference text, unstyled
+# Return: 0
+_help_source_text() {
+  cat <<'EOF'
 Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster snapshot <save|list|diff|restore|delete> [ref] [options]
        brewmaster deps show [package]
@@ -115,3 +129,5 @@ Notes:
 - Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 - Audit log stored in: ~/.local/share/brewmaster/audit.log (XDG_DATA_HOME respected).
 - Profiles read from: ~/.config/brewmaster/profiles.toml (XDG_CONFIG_HOME respected).
+EOF
+}

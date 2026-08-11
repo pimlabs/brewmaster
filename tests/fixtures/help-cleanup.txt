@@ -1,0 +1,13 @@
+CLEANUP & INTENT
+  cleanup                    Report orphan/stale/pinned-old formulae (read-only by default).
+  why <package>              Explain why a formula is installed (dependents,
+                             install date, last-access heuristic).
+  bloat                      Summary of installed package counts and estimated
+                             disk reclaim from cleanup candidates.
+                             e.g. brewmaster cleanup --interactive
+
+  Flags (apply to cleanup):
+    -n, --dry-run            Read-only report (also the default with no flags).
+    --interactive, -i        fzf multi-select packages to remove (requires fzf).
+    --force                  Auto-remove orphans with cleanup score >= 7, no confirmation.
+
