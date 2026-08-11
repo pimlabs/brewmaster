@@ -53,6 +53,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M7 — Upgrade Checklist          | v0.8.0   | `[x] done`   |
 | M8 — Visual Polish              | v0.9.0   | `[x] done`   |
 | M9 — Manual & Help              | v0.10.0  | `[x] done`   |
+| M10 — Colorized Help            | v0.11.0  | `[ ] planned` |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > Full scope, function contracts, and acceptance criteria for M0–M5:
@@ -452,3 +453,46 @@ brewmaster --version          # prints version and build date
 
 See `openspec/changes/archive/2026-08-11-m9-manual-help/` for the full
 proposal, design, specs, and tasks record.
+
+---
+
+### Milestone 10 — Colorized Help
+
+**Status:** `[ ] planned` **Branch:** `feat/help-color` **Version:** `v0.11.0` **Depends on:** M8, M9
+
+#### Scope
+
+`--help`/`brewmaster help [command]` currently style with bold/underline/dim
+only (`_help_style_vars`/`_help_style_name`/`_help_style_desc` in
+`bin/brewmaster`, predating `ui.sh`) — no actual ANSI color, unlike the
+rest of the CLI's output since M8 (`ui.sh`'s `COLOR_OK`/`WARN`/`HIGH`/
+`MUTED`). Bring real color to section headers, command names, flags, and
+placeholders in `--help` and `help <command>`, evaluated against the
+same test brewmaster already applies everywhere: `NO_COLOR`, non-TTY
+output, and no-`tput` environments must all still degrade to the existing
+byte-identical plain text (`tests/fixtures/help.txt` and friends stay
+pinned). `docs/brewmaster.1` (troff, no ANSI concept) is unaffected.
+
+Note: `ui.sh`'s four existing colors are semantic (ok/warn/high/muted,
+tied to risk and cleanup scores) — they don't map cleanly onto decorative
+structural elements like a section header or a command name, which carry
+no risk/status meaning. Working out that color mapping (reuse vs. new
+dedicated help colors) is a design decision for `design.md`, not decided
+here.
+
+#### Files (expected — confirm against real code before implementing)
+
+- `bin/brewmaster` — `_help_style_vars`/`_help_style_name`/`_help_style_desc`
+  (or their replacement)
+- Possibly `lib/brewmaster/core/ui.sh` — if new colors are added there
+  instead of staying local to `bin/brewmaster`
+- `tests/fixtures/help*.txt` — must stay unaffected under `NO_COLOR`
+
+#### Acceptance Criteria
+
+```
+brewmaster --help                 # section headers, command names, flags in color on a TTY
+brewmaster help cleanup           # same, for a single command block
+NO_COLOR=1 brewmaster --help      # byte-identical to today's plain-text fixture
+brewmaster --help | cat           # non-TTY: no color codes leak into pipes
+```
