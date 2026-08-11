@@ -72,7 +72,13 @@ _man_safe_line() {
 }
 
 # --- Load the shared source text once, as an array of raw lines ---
-mapfile -t HELP_LINES < <(_help_source_text)
+# (avoid mapfile/readarray: bash4+ only, and macOS ships bash 3.2 as
+# /bin/bash — this must run under both, matching bin/brewmaster's own
+# process-substitution read loop elsewhere in this project)
+HELP_LINES=()
+while IFS= read -r _gm_line || [ -n "$_gm_line" ]; do
+  HELP_LINES+=("$_gm_line")
+done < <(_help_source_text)
 
 # gen_synopsis — emit .SH SYNOPSIS body from the leading "Usage: ..." block
 # (the lines from the top of _help_source_text() up to the first blank
