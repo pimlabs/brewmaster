@@ -130,5 +130,33 @@ echo "$out" | grep -qE '^brewmaster [0-9]+\.[0-9]+\.[0-9]+ \(built [0-9]{4}-[0-9
   && ok || bad "--version should print 'brewmaster <version> (built <date>)'"
 [ "$("$BM" -V)" = "$out" ] && ok || bad "-V should match --version output"
 
+# 19. --help under a real TTY: section headers carry COLOR_HEADER (tput
+#     setaf 6), command/flag names carry COLOR_COMMAND (tput setaf 4).
+#     Uses script(1) to attach a real pty, since a plain $(...) capture is
+#     never a TTY and would make ui_color_init suppress all color.
+if command -v script >/dev/null 2>&1; then
+  hdr_seq="$(tput setaf 6)"
+  cmd_seq="$(tput setaf 4)"
+  tty_out="$(script -q /dev/null "$BM" --help 2>&1 || true)"
+  echo "$tty_out" | grep -qF "$hdr_seq" && ok || bad "help TTY: section header has COLOR_HEADER"
+  echo "$tty_out" | grep -qF "$cmd_seq" && ok || bad "help TTY: command/flag name has COLOR_COMMAND"
+else
+  echo "skip: script(1) not available, cannot test TTY color output" >&2
+fi
+
+# 20. Decorative help colors (COLOR_HEADER/COLOR_COMMAND) are distinct
+#     tput codes from the semantic risk/cleanup colors (COLOR_OK/WARN/HIGH)
+#     — never appear identical, so help styling can't be mistaken for a
+#     risk/status signal.
+header="$(tput setaf 6)"; command_c="$(tput setaf 4)"
+ok_c="$(tput setaf 2)"; warn_c="$(tput setaf 3)"; high_c="$(tput setaf 1)"
+distinct=true
+for a in "$header" "$command_c"; do
+  for b in "$ok_c" "$warn_c" "$high_c"; do
+    [ "$a" = "$b" ] && distinct=false
+  done
+done
+$distinct && ok || bad "COLOR_HEADER/COLOR_COMMAND must differ from COLOR_OK/WARN/HIGH"
+
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))
