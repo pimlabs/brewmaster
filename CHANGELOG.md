@@ -7,6 +7,41 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.10.0] — 2026-08-11
+
+### Added
+
+- `brewmaster help [command]` — per-command usage, flags, and one worked
+  example, sourced from a single shared table
+  (`lib/brewmaster/core/help_data.sh`) that also drives the existing
+  top-level `--help` output, so the two can never drift apart
+- `docs/gen-man.sh` — generates `docs/brewmaster.1` from that same shared
+  table; a test diffs the generator's output against the committed man
+  page so it can never go stale again (the previous hand-written page had
+  drifted, missing profiles, audit log/report, and cleanup entirely)
+- `brewmaster --version`/`-V` now includes a build date:
+  `brewmaster <version> (built <date>)`
+- Upgrade candidates are now always reviewed before executing — fzf
+  multi-select if installed, otherwise a table plus a single `[y/N]` for
+  the batch; `--dry-run` and `--yes` both skip the review
+- Color-coded output via `lib/brewmaster/core/ui.sh`: dependency risk
+  score and cleanup score are highlighted by level (opposite color
+  directions — high risk is red/dangerous, high cleanup score is
+  green/safe to remove), `snapshot diff` tags (NEW/REMOVED/UPGRADE/
+  DOWNGRADE) are colored, respects `NO_COLOR` and non-TTY output
+
+### Changed
+
+- `cleanup`/`bloat`/`why` no longer call `brew list`/`brew --cellar` once
+  per installed package — the Cellar root is fetched once and package
+  paths are derived from it directly (measured ~29x per-lookup speedup)
+- `--interactive`/`-i` is now a no-op on `upgrade` (kept for backward
+  compatibility) since candidate review happens by default; `--yes`/`-y`
+  skips it
+- All five existing ad-hoc table/progress-line implementations
+  (`profile`, `audit`, `depgraph`, `cleanup`, `snapshot`) migrated to the
+  shared `ui.sh` helpers instead of five hand-rolled copies
+
 ## [0.8.1] — 2026-06-14
 
 ### Changed
