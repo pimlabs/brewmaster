@@ -147,9 +147,14 @@ fi
 # 20. Decorative help colors (COLOR_HEADER/COLOR_COMMAND) are distinct
 #     tput codes from the semantic risk/cleanup colors (COLOR_OK/WARN/HIGH)
 #     — never appear identical, so help styling can't be mistaken for a
-#     risk/status signal.
-header="$(tput setaf 6)"; command_c="$(tput setaf 4)"
-ok_c="$(tput setaf 2)"; warn_c="$(tput setaf 3)"; high_c="$(tput setaf 1)"
+#     risk/status signal. TERM is forced to xterm here, unconditionally:
+#     CI runs this script with no controlling terminal at all (unlike test
+#     19's script(1) pty), and bash defaults an unset $TERM to "dumb" for
+#     a non-interactive subshell — "dumb" is a real terminfo entry with no
+#     color capability, so tput would silently return empty for every
+#     color and make every comparison look "equal" for the wrong reason.
+header="$(TERM=xterm tput setaf 6)"; command_c="$(TERM=xterm tput setaf 4)"
+ok_c="$(TERM=xterm tput setaf 2)"; warn_c="$(TERM=xterm tput setaf 3)"; high_c="$(TERM=xterm tput setaf 1)"
 distinct=true
 for a in "$header" "$command_c"; do
   for b in "$ok_c" "$warn_c" "$high_c"; do
