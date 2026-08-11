@@ -53,7 +53,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M7 — Upgrade Checklist          | v0.8.0   | `[x] done`   |
 | M8 — Visual Polish              | v0.9.0   | `[x] done`   |
 | M9 — Manual & Help              | v0.10.0  | `[x] done`   |
-| M10 — Colorized Help            | v0.11.0  | `[ ] planned` |
+| M10 — Colorized Help            | v0.11.0  | `[x] done`   |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > Full scope, function contracts, and acceptance criteria for M0–M5:
@@ -458,41 +458,69 @@ proposal, design, specs, and tasks record.
 
 ### Milestone 10 — Colorized Help
 
-**Status:** `[ ] planned` **Branch:** `feat/help-color` **Version:** `v0.11.0` **Depends on:** M8, M9
+**Status:** `[x] done` **Branch:** `feat/help-color` **Version:** `v0.11.0` **Depends on:** M8, M9
 
-#### Scope
+#### Scope (as actually built)
 
-`--help`/`brewmaster help [command]` currently style with bold/underline/dim
-only (`_help_style_vars`/`_help_style_name`/`_help_style_desc` in
-`bin/brewmaster`, predating `ui.sh`) — no actual ANSI color, unlike the
-rest of the CLI's output since M8 (`ui.sh`'s `COLOR_OK`/`WARN`/`HIGH`/
-`MUTED`). Bring real color to section headers, command names, flags, and
-placeholders in `--help` and `help <command>`, evaluated against the
-same test brewmaster already applies everywhere: `NO_COLOR`, non-TTY
-output, and no-`tput` environments must all still degrade to the existing
-byte-identical plain text (`tests/fixtures/help.txt` and friends stay
-pinned). `docs/brewmaster.1` (troff, no ANSI concept) is unaffected.
+Built close to plan — the one open design question the scope note flagged
+(reuse `ui.sh`'s semantic colors, or add dedicated ones) was resolved in
+`design.md` before any code was written: two new decorative constants,
+`COLOR_HEADER` (cyan, section headers) and `COLOR_COMMAND` (blue,
+command/flag name-tokens), added to `ui_color_init` in `ui.sh` rather
+than living locally in `bin/brewmaster` — one color surface for the whole
+CLI, not a second parallel one. Deliberately distinct `tput setaf` codes
+from `COLOR_OK`/`WARN`/`HIGH` (2/3/1) so help styling can never be
+mistaken for a risk or status signal elsewhere in the same terminal
+session.
 
-Note: `ui.sh`'s four existing colors are semantic (ok/warn/high/muted,
-tied to risk and cleanup scores) — they don't map cleanly onto decorative
-structural elements like a section header or a command name, which carry
-no risk/status meaning. Working out that color mapping (reuse vs. new
-dedicated help colors) is a design decision for `design.md`, not decided
-here.
+`ui.sh` is now sourced (and `ui_color_init` called) early in
+`bin/brewmaster`, right alongside `help_data.sh` — the exact same
+early-sourcing fix M9 already established, needed again here since
+`usage()`/`help_command()` can run before argument parsing (`-h`/`--help`,
+the unknown-command path). `_help_style_desc`'s local dim variable was
+retired in favor of `ui.sh`'s `COLOR_MUTED` (literally the same `tput dim`
+sequence, one less duplicate).
 
-#### Files (expected — confirm against real code before implementing)
+One deliberate deviation from the original scope line "section headers,
+command names, flags, **and placeholders**": placeholders
+(`<package>`/`[options]`) stayed underline-only, no third color added.
+Decided in `design.md` as restraint reading as more "modern" than a third
+arbitrary hue, and confirmed by the `[y/N]`-review-free `AskUserQuestion`
+this milestone otherwise didn't need — the maintainer never asked for
+placeholders to be colored, just headers and commands.
 
-- `bin/brewmaster` — `_help_style_vars`/`_help_style_name`/`_help_style_desc`
-  (or their replacement)
-- Possibly `lib/brewmaster/core/ui.sh` — if new colors are added there
-  instead of staying local to `bin/brewmaster`
-- `tests/fixtures/help*.txt` — must stay unaffected under `NO_COLOR`
+`NO_COLOR`/non-TTY output confirmed byte-identical to the pre-change
+`tests/fixtures/help.txt` throughout (diffed at every step, not just at
+the end). TTY color output verified two ways: visually through a real
+pty (`script -q /dev/null`) during implementation, and as a permanent
+test (`tests/test_cli.sh` tests 19-20) using the same `script`-based pty
+technique — `test_cli.sh` invokes `bin/brewmaster` as a subprocess, so
+the sentinel-override-in-process pattern used by `test_depgraph.sh`/
+`test_cleanup.sh` doesn't apply there; a real pty plus grepping for the
+actual `tput setaf` sequences proves the same thing through a mechanism
+that fits this file's existing subprocess-testing style.
 
-#### Acceptance Criteria
+#### Files
+
+- `lib/brewmaster/core/ui.sh` — `COLOR_HEADER`/`COLOR_COMMAND` added to
+  `ui_color_init`
+- `bin/brewmaster` — `ui.sh` sourced early; `_help_style_vars`,
+  `_help_style_name`, `_help_style_desc`, `_help_render_line` updated to
+  apply the new colors and consume `COLOR_MUTED` instead of a local dim
+  variable
+- `tests/test_cli.sh` — 3 new assertions (TTY color presence via a real
+  pty, decorative/semantic color-code distinctness)
+
+#### Acceptance Criteria (actual)
 
 ```
-brewmaster --help                 # section headers, command names, flags in color on a TTY
+brewmaster --help                 # section headers cyan, command/flag names blue, on a TTY
 brewmaster help cleanup           # same, for a single command block
-NO_COLOR=1 brewmaster --help      # byte-identical to today's plain-text fixture
+NO_COLOR=1 brewmaster --help      # byte-identical to tests/fixtures/help.txt
 brewmaster --help | cat           # non-TTY: no color codes leak into pipes
+# All 8 test files pass (268 assertions); shellcheck clean on bin/brewmaster
+# and lib/brewmaster/**/*.sh
 ```
+
+See `openspec/changes/archive/2026-08-11-m10-colorized-help/` for the
+full proposal, design, specs, and tasks record.
