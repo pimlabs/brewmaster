@@ -5,15 +5,21 @@
 # detection pattern to real ANSI colors for the rest of the CLI's output.
 
 # ui_color_init — set COLOR_OK, COLOR_WARN, COLOR_HIGH, COLOR_MUTED,
-# COLOR_RESET to tput-derived ANSI sequences, or all-empty when styling
-# should be suppressed (non-TTY, NO_COLOR set, or no tput available).
-# Semantic constants only — callers map their own numeric thresholds to
-# these; ui.sh has no opinion on what "high" means for a given score.
+# COLOR_HEADER, COLOR_COMMAND, COLOR_RESET to tput-derived ANSI sequences,
+# or all-empty when styling should be suppressed (non-TTY, NO_COLOR set,
+# or no tput available).
+# COLOR_OK/WARN/HIGH are semantic — callers map their own numeric
+# thresholds to these; ui.sh has no opinion on what "high" means for a
+# given score. COLOR_HEADER/COLOR_COMMAND are decorative (no score/status
+# meaning) and use color codes distinct from OK/WARN/HIGH on purpose, so
+# help-text styling never visually collides with risk/cleanup coloring.
 # Args:   none
-# Stdout: none (sets globals COLOR_OK COLOR_WARN COLOR_HIGH COLOR_MUTED COLOR_RESET)
+# Stdout: none (sets globals COLOR_OK COLOR_WARN COLOR_HIGH COLOR_MUTED
+#         COLOR_HEADER COLOR_COMMAND COLOR_RESET)
 # Return: 0
 ui_color_init() {
-  COLOR_OK="" COLOR_WARN="" COLOR_HIGH="" COLOR_MUTED="" COLOR_RESET=""
+  COLOR_OK="" COLOR_WARN="" COLOR_HIGH="" COLOR_MUTED="" \
+    COLOR_HEADER="" COLOR_COMMAND="" COLOR_RESET=""
   [ -t 1 ] || return 0
   [ -n "${NO_COLOR:-}" ] && return 0
   command -v tput >/dev/null 2>&1 || return 0
@@ -21,6 +27,8 @@ ui_color_init() {
   COLOR_WARN="$(tput setaf 3 2>/dev/null || true)"
   COLOR_HIGH="$(tput setaf 1 2>/dev/null || true)"
   COLOR_MUTED="$(tput dim 2>/dev/null || true)"
+  COLOR_HEADER="$(tput setaf 6 2>/dev/null || true)"
+  COLOR_COMMAND="$(tput setaf 4 2>/dev/null || true)"
   COLOR_RESET="$(tput sgr0 2>/dev/null || true)"
 }
 
