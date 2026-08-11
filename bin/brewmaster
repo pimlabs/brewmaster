@@ -8,7 +8,8 @@ BUILD_DATE="2026-08-11"
 # --- Locate and source library modules (symlink-safe for Homebrew layout) ---
 # Resolved early (before usage()/help-related functions are defined or can be
 # called) because -h/--help and the unknown-command error path both call
-# usage() before argument parsing runs, and usage() depends on help_data.sh.
+# usage() before argument parsing runs, and usage() depends on help_data.sh
+# and (for colorized headers/command names) on ui_color_init having run.
 src="${BASH_SOURCE[0]}"
 while [ -h "$src" ]; do
   dir="$(cd -P "$(dirname "$src")" && pwd)"
@@ -19,6 +20,8 @@ SCRIPT_DIR="$(cd -P "$(dirname "$src")" && pwd)"
 LIB_DIR="${BREWMASTER_LIB:-$SCRIPT_DIR/../lib/brewmaster}"
 
 source "$LIB_DIR/core/help_data.sh"
+source "$LIB_DIR/core/ui.sh"
+ui_color_init
 
 # Global configuration (overridden by CLI flags below).
 LEVEL="patch"        # patch | minor | major  (exact category; exclusive by default)
@@ -50,13 +53,16 @@ AUDIT_SINCE=""
 AUDIT_FORMAT="table"
 HELP_TARGET=""
 
-# _help_style_vars — set B/R/U/UR/D to tput sequences, or "" when styling
+# _help_style_vars — set B/R/U/UR to tput sequences, or "" when styling
 # should be suppressed (non-TTY, NO_COLOR set, or no tput available).
+# Dim/muted styling is not set here — _help_style_desc uses ui.sh's
+# COLOR_MUTED (set by ui_color_init, sourced early alongside this) instead,
+# since both are the same `tput dim` sequence and don't need two copies.
 # Args:   none
-# Stdout: none (sets globals B R U UR D)
+# Stdout: none (sets globals B R U UR)
 # Return: 0
 _help_style_vars() {
-  B="" R="" U="" UR="" D=""
+  B="" R="" U="" UR=""
   [ -t 1 ] || return 0
   [ -n "${NO_COLOR:-}" ] && return 0
   command -v tput >/dev/null 2>&1 || return 0
@@ -64,11 +70,12 @@ _help_style_vars() {
   R="$(tput sgr0 2>/dev/null || true)"
   U="$(tput smul 2>/dev/null || true)"
   UR="$(tput rmul 2>/dev/null || true)"
-  D="$(tput dim 2>/dev/null || true)"
 }
 
-# _help_style_name — bold a definition-line name-token, underlining any
-# <...>/[...] placeholder group or a trailing =NAME|TEXT|N|ACTION metavar.
+# _help_style_name — bold+color a definition-line name-token (using
+# ui.sh's COLOR_COMMAND, decorative not semantic), underlining any
+# <...>/[...] placeholder group or a trailing =NAME|TEXT|N|ACTION metavar
+# without adding color to the underlined portion.
 # Args:   $1 name-token text
 # Stdout: styled name-token
 # Return: 0
@@ -79,20 +86,21 @@ _help_style_name() {
     ph="${BASH_REMATCH[2]}"
     post="${BASH_REMATCH[3]}"
     styled_post=""
-    [ -n "$post" ] && styled_post="${B}${post}${R}"
+    [ -n "$post" ] && styled_post="${B}${COLOR_COMMAND}${post}${R}"
     printf '%s%s%s%s%s' "$(_help_style_name "$pre")" "$U" "$ph" "$UR" "$styled_post"
     return 0
   fi
   if [[ "$name" =~ ^(.*=)(NAME|TEXT|N|ACTION)$ ]]; then
-    printf '%s%s%s%s' "${B}${BASH_REMATCH[1]}${R}" "$U" "${BASH_REMATCH[2]}" "$UR"
+    printf '%s%s%s%s' "${B}${COLOR_COMMAND}${BASH_REMATCH[1]}${R}" "$U" "${BASH_REMATCH[2]}" "$UR"
     return 0
   fi
-  [ -n "$name" ] && printf '%s%s%s' "$B" "$name" "$R"
+  [ -n "$name" ] && printf '%s%s%s' "${B}${COLOR_COMMAND}" "$name" "$R"
   return 0
 }
 
-# _help_style_desc — dim narrow secondary-annotation parentheticals
-# ("(default...)", "(also: ...)", "(requires fzf)") within a description.
+# _help_style_desc — dim (ui.sh's COLOR_MUTED) narrow secondary-annotation
+# parentheticals ("(default...)", "(also: ...)", "(requires fzf)") within
+# a description.
 # Args:   $1 description text
 # Stdout: styled description
 # Return: 0
@@ -100,14 +108,15 @@ _help_style_desc() {
   local desc="$1" out="" m
   while [[ "$desc" =~ \((default[^\)]*|also:[^\)]*|requires\ fzf)\) ]]; do
     m="${BASH_REMATCH[0]}"
-    out="${out}${desc%%"$m"*}${D}${m}${R}"
+    out="${out}${desc%%"$m"*}${COLOR_MUTED}${m}${COLOR_RESET}"
     desc="${desc#*"$m"}"
   done
   printf '%s%s' "$out" "$desc"
 }
 
-# usage — print the --help reference, with bold/underline/dim styling
-# applied when stdout is a TTY (suppressed for NO_COLOR, non-TTY, or no tput).
+# usage — print the --help reference, with bold/underline styling plus
+# COLOR_HEADER/COLOR_COMMAND/COLOR_MUTED coloring, applied when stdout is
+# a TTY (suppressed for NO_COLOR, non-TTY, or no tput).
 # Args:   none
 # Stdout: help text
 # Return: 0
@@ -120,11 +129,13 @@ usage() {
 }
 
 # _help_render_line — style a single line of _help_source_text() output the
-# way usage() always has (bold caps-header, bold+underlined name-tokens,
-# dimmed parentheticals). Shared by usage() and help_command() so both
-# renderers apply identical styling from one code path.
+# way usage() always has (bold+colored caps-header, bold+colored+underlined
+# name-tokens, muted parentheticals). Shared by usage() and help_command()
+# so both renderers apply identical styling from one code path.
 # Args:   $1 raw help-reference line
-# Stdout: styled line (uses globals B/R/U/UR/D set by _help_style_vars)
+# Stdout: styled line (uses globals B/R/U/UR from _help_style_vars, and
+#         COLOR_HEADER/COLOR_COMMAND/COLOR_MUTED/COLOR_RESET from
+#         ui_color_init, both already run by the time this is called)
 # Return: 0
 _help_render_line() {
   local line="$1"
@@ -137,7 +148,7 @@ _help_render_line() {
       printf '%sNotes:%s\n' "$B" "$R" ;;
     *)
       if [[ "$line" =~ ^([A-Z][A-Z\ \&]*)(.*)$ ]] && [ "${#BASH_REMATCH[1]}" -ge 2 ]; then
-        printf '%s%s%s%s\n' "$B" "${BASH_REMATCH[1]}" "$R" "${BASH_REMATCH[2]}"
+        printf '%s%s%s%s%s\n' "$B" "$COLOR_HEADER" "${BASH_REMATCH[1]}" "$R" "${BASH_REMATCH[2]}"
       elif [[ "$line" =~ ^(\ \ |\ \ \ \ )([^\ ]+(\ [^\ ]+)*)(\ \ +)(.*)$ ]]; then
         printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$(_help_style_name "${BASH_REMATCH[2]}")" "${BASH_REMATCH[4]}" "$(_help_style_desc "${BASH_REMATCH[5]}")"
       elif [[ "$line" =~ ^(\ \ )([^\ ].*:)$ ]]; then
@@ -287,15 +298,12 @@ fi
 
 source "$LIB_DIR/core/semver.sh"
 source "$LIB_DIR/core/outdated.sh"
-source "$LIB_DIR/core/ui.sh"
 source "$LIB_DIR/upgrade.sh"
 source "$LIB_DIR/audit.sh"
 source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"
 source "$LIB_DIR/profile.sh"
 source "$LIB_DIR/cleanup.sh"
-
-ui_color_init
 
 if [[ -n "$PROFILE_NAME" ]]; then
   profile_load "$PROFILE_NAME" || exit 1
