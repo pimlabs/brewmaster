@@ -114,6 +114,16 @@ _help_style_desc() {
   printf '%s%s' "$out" "$desc"
 }
 
+# _help_version_line — print "brewmaster <version>" as a banner line
+# before the reference body, styled like a section header (bold+colored).
+# Shared by usage() and help_command() so both show it identically.
+# Args:   none
+# Stdout: version line, then a blank line
+# Return: 0
+_help_version_line() {
+  printf '%s%sbrewmaster %s%s\n\n' "$B" "$COLOR_HEADER" "$BREWMASTER_VERSION" "$R"
+}
+
 # usage — print the --help reference, with bold/underline styling plus
 # COLOR_HEADER/COLOR_COMMAND/COLOR_MUTED coloring, applied when stdout is
 # a TTY (suppressed for NO_COLOR, non-TTY, or no tput).
@@ -122,6 +132,7 @@ _help_style_desc() {
 # Return: 0
 usage() {
   _help_style_vars
+  _help_version_line
   local line
   while IFS= read -r line; do
     _help_render_line "$line"
@@ -148,7 +159,7 @@ _help_render_line() {
       printf '%sNotes:%s\n' "$B" "$R" ;;
     *)
       if [[ "$line" =~ ^([A-Z][A-Z\ \&]*)(.*)$ ]] && [ "${#BASH_REMATCH[1]}" -ge 2 ]; then
-        printf '%s%s%s%s%s\n' "$B" "$COLOR_HEADER" "${BASH_REMATCH[1]}" "$R" "${BASH_REMATCH[2]}"
+        printf '%s%s%s%s%s%s\n' "$B" "$COLOR_HEADER" "$U" "${BASH_REMATCH[1]}" "$R" "${BASH_REMATCH[2]}"
       elif [[ "$line" =~ ^(\ \ |\ \ \ \ )([^\ ]+(\ [^\ ]+)*)(\ \ +)(.*)$ ]]; then
         printf '%s%s%s%s\n' "${BASH_REMATCH[1]}" "$(_help_style_name "${BASH_REMATCH[2]}")" "${BASH_REMATCH[4]}" "$(_help_style_desc "${BASH_REMATCH[5]}")"
       elif [[ "$line" =~ ^(\ \ )([^\ ].*:)$ ]]; then
@@ -192,6 +203,7 @@ help_command() {
       elif [ "$hdr" = "$group" ]; then
         in_block=true
         found=true
+        _help_version_line
       else
         continue
       fi

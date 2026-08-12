@@ -105,46 +105,60 @@ gen_synopsis() {
 # gen_commands — emit .SH COMMANDS body: one .SS per caps-header group,
 # walking each group's lines with the same shapes usage()'s styling loop
 # recognizes (definition lines become .TP entries, "label:" lines become
-# bold paragraph headers, everything else is continuation text).
+# bold paragraph headers, everything else is continuation text). A blank
+# source line marks a paragraph boundary: continuation text immediately
+# after a .TP entry with NO blank line between (e.g. an example line right
+# under a command's own description) stays part of that .TP's body, but
+# continuation text preceded by a blank line starts its own .PP — without
+# this, standalone notes would silently render as if they were still
+# describing whichever flag happened to be the last .TP before them.
 # Args:   none
 # Stdout: troff COMMANDS body
 # Return: 0
 gen_commands() {
-  local line in_group=false name desc cont
+  local line in_group=false name desc cont pending_break=true
   for line in "${HELP_LINES[@]}"; do
     if [[ "$line" =~ ^([A-Z][A-Z\ \&]*)(.*)$ ]] && [ "${#BASH_REMATCH[1]}" -ge 2 ]; then
       in_group=true
+      pending_break=false
       printf '.SS %s%s\n' "$(_man_escape "${BASH_REMATCH[1]}")" "$(_man_escape "${BASH_REMATCH[2]}")"
       continue
     fi
     $in_group || continue
-    if [ "$line" = "Notes:" ]; then
-      in_group=false
-    elif [ -z "$line" ]; then
+    if [ -z "$line" ]; then
+      pending_break=true
       continue
     elif [[ "$line" =~ ^(\ \ |\ \ \ \ )([^\ ]+(\ [^\ ]+)*)(\ \ +)(.*)$ ]]; then
       name="${BASH_REMATCH[2]}"
       desc="${BASH_REMATCH[5]}"
       printf '.TP\n.B %s\n' "$(_man_inline "$name")"
       _man_safe_line "$(_man_inline "$desc")"
+      pending_break=false
     elif [[ "$line" =~ ^(\ \ )([^\ ].*:)$ ]]; then
       printf '.PP\n.B %s\n' "$(_man_escape "${BASH_REMATCH[2]}")"
+      pending_break=false
     else
       cont="$(printf '%s' "$line" | sed -E 's/^ +//')"
+      if $pending_break; then
+        printf '.PP\n'
+        pending_break=false
+      fi
       _man_safe_line "$(_man_inline "$cont")"
     fi
   done
 }
 
-# gen_files — emit .SH FILES body, extracted from the Notes bullet lines
-# that name an on-disk path ("- <description>: ~/<path> <annotation>.").
+# gen_files — emit .SH FILES body, extracted from the storage-path lines
+# inside each group's body ("  <description>: ~/<path> <annotation>."),
+# not from a separate Notes section (there isn't one — each group states
+# its own on-disk location where relevant).
 # Args:   none
 # Stdout: troff FILES body
 # Return: 0
 gen_files() {
   local line desc path extra found=false
   for line in "${HELP_LINES[@]}"; do
-    if [[ "$line" =~ ^-\ (.+):\ (~[^\ ]+)\ (.*)$ ]]; then
+    if [[ "$line" =~ ^\ \ (.+):\ (~[^\ ]+)\ (.*)$ ]]; then
       desc="${BASH_REMATCH[1]}"
       path="${BASH_REMATCH[2]}"
       extra="${BASH_REMATCH[3]}"

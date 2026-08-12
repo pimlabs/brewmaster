@@ -88,9 +88,14 @@ Filter/level from a named profile (see PROFILES).
 .TP
 .B --interactive, -i
 No effect (review below is now always shown; kept for compatibility).
+.PP
 Before executing, candidates are always shown for review: fzf multi-select if
 installed, else a table plus a single \fI[y/N]\fR for the whole batch. --dry-run and
 --yes both skip this (--dry-run shows the table and stops; --yes upgrades all).
+.PP
+Version comparison ignores pre-release (-rc.1) and +build metadata (only
+M.m.p is compared); date/timestamp versions (YYYY.MM.DD) are skipped
+unless --allow-date is set.
 .SS DEPENDENCY RISK
 .TP
 .B deps show \fI[package]\fR
@@ -108,6 +113,10 @@ HIGH-risk cutoff (default: 7; range 0-10).
 .TP
 .B --yes, -y
 Auto-confirm MEDIUM-risk packages, and skip the upgrade review step.
+.PP
+Risk score is 0-10, higher = more dangerous to upgrade: HIGH >= threshold
+(default 7), MEDIUM 4-6, LOW 0-3. Opposite direction from cleanup score
+(see CLEANUP & INTENT).
 .SS SNAPSHOT & ROLLBACK
 .TP
 .B snapshot save
@@ -116,13 +125,13 @@ Save current Homebrew state to a snapshot.
 .B snapshot list
 List all snapshots.
 .TP
-.B snapshot diff \fI[INDEX|PATH]\fR
+.B snapshot diff \fI[ref]\fR
 Show packages changed since a snapshot.
 .TP
-.B snapshot restore \fI[INDEX|PATH]\fR
+.B snapshot restore \fI[ref]\fR
 Restore packages to a snapshot state.
 .TP
-.B snapshot delete \fI[INDEX|PATH]\fR
+.B snapshot delete \fI[ref]\fR
 Delete a snapshot.
 e.g. brewmaster snapshot restore 0
 .PP
@@ -135,7 +144,12 @@ Label for 'snapshot save'.
 Show plan without executing for 'snapshot restore'.
 .TP
 .B --force
-Skip the y/N confirmation for 'snapshot delete'.
+Skip the y/N confirmation for 'snapshot delete' (differs from cleanup's --force).
+.PP
+\fI[ref]\fR accepts either the numeric index shown by 'snapshot list', or a
+direct path to a saved snapshot file.
+.PP
+Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 .SS PROFILES
 .TP
 .B profile list
@@ -147,7 +161,7 @@ Interactive wizard to add a new profile.
 .B profile edit \fI[name]\fR
 Open profiles.toml in $EDITOR.
 .TP
-.B profile diff \fIa\fR \fIb\fR
+.B profile diff \fIprofile_a\fR \fIprofile_b\fR
 Compare include lists between two profiles.
 .TP
 .B profile validate
@@ -161,6 +175,8 @@ Apply a profile's package filter and level.
 .TP
 .B --interactive, -i
 No effect (upgrade always reviews candidates before executing).
+.PP
+Profiles read from: ~/.config/brewmaster/profiles.toml (XDG_CONFIG_HOME respected).
 .SS CLEANUP & INTENT
 .TP
 .B cleanup
@@ -184,7 +200,10 @@ Read-only report (also the default with no flags).
 fzf multi-select packages to remove (requires fzf).
 .TP
 .B --force
-Auto-remove orphans with cleanup score >= 7, no confirmation.
+Auto-remove orphans with cleanup score >= 7, no confirmation (differs from snapshot's --force).
+.PP
+Cleanup score is 0-10, higher = safer to remove: the opposite direction
+from dependency risk score (see DEPENDENCY RISK).
 .SS AUDIT LOG & REPORTS
 .TP
 .B log
@@ -208,6 +227,8 @@ Only entries within this time window (default unit: days).
 .TP
 .B --format=table|json|csv
 Output format (default: table).
+.PP
+Audit log stored in: ~/.local/share/brewmaster/audit.log (XDG_DATA_HOME respected).
 .SS GENERAL
 .TP
 .B -v, --verbose
@@ -218,16 +239,19 @@ Print version and exit.
 .TP
 .B -h, --help
 Show this help.
+.PP
+-h/--help prints this full reference; use `brewmaster help \fIcommand\fR` for
+a shorter, per-command reference instead.
 .SH FILES
 .TP
 .I ~/.local/share/brewmaster/snapshots/
 Snapshots stored in. (XDG_DATA_HOME respected).
 .TP
-.I ~/.local/share/brewmaster/audit.log
-Audit log stored in. (XDG_DATA_HOME respected).
-.TP
 .I ~/.config/brewmaster/profiles.toml
 Profiles read from. (XDG_CONFIG_HOME respected).
+.TP
+.I ~/.local/share/brewmaster/audit.log
+Audit log stored in. (XDG_DATA_HOME respected).
 .SH EXAMPLES
 .TP
 .B brewmaster upgrade git node --minor

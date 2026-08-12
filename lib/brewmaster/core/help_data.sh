@@ -48,6 +48,10 @@ UPGRADE (default command)
   installed, else a table plus a single [y/N] for the whole batch. --dry-run and
   --yes both skip this (--dry-run shows the table and stops; --yes upgrades all).
 
+  Version comparison ignores pre-release (-rc.1) and +build metadata (only
+  M.m.p is compared); date/timestamp versions (YYYY.MM.DD) are skipped
+  unless --allow-date is set.
+
 DEPENDENCY RISK
   deps show [package]        Show dependency risk for one package, or list all
                              outdated packages sorted by risk score.
@@ -58,30 +62,41 @@ DEPENDENCY RISK
     --risk-threshold=N       HIGH-risk cutoff (default: 7; range 0-10).
     --yes, -y                Auto-confirm MEDIUM-risk packages, and skip the upgrade review step.
 
+  Risk score is 0-10, higher = more dangerous to upgrade: HIGH >= threshold
+  (default 7), MEDIUM 4-6, LOW 0-3. Opposite direction from cleanup score
+  (see CLEANUP & INTENT).
+
 SNAPSHOT & ROLLBACK
   snapshot save              Save current Homebrew state to a snapshot.
   snapshot list              List all snapshots.
-  snapshot diff [INDEX|PATH]  Show packages changed since a snapshot.
-  snapshot restore [INDEX|PATH]  Restore packages to a snapshot state.
-  snapshot delete [INDEX|PATH]   Delete a snapshot.
+  snapshot diff [ref]        Show packages changed since a snapshot.
+  snapshot restore [ref]     Restore packages to a snapshot state.
+  snapshot delete [ref]      Delete a snapshot.
                              e.g. brewmaster snapshot restore 0
 
   Flags:
     --label=TEXT             Label for 'snapshot save'.
     -n, --dry-run            Show plan without executing for 'snapshot restore'.
-    --force                  Skip the y/N confirmation for 'snapshot delete'.
+    --force                  Skip the y/N confirmation for 'snapshot delete' (differs from cleanup's --force).
+
+  [ref] accepts either the numeric index shown by 'snapshot list', or a
+  direct path to a saved snapshot file.
+
+  Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 
 PROFILES
   profile list               List configured profiles.
   profile create              Interactive wizard to add a new profile.
   profile edit [name]         Open profiles.toml in $EDITOR.
-  profile diff <a> <b>        Compare include lists between two profiles.
+  profile diff <profile_a> <profile_b>  Compare include lists between two profiles.
   profile validate             Check profiles.toml for errors.
                              e.g. brewmaster upgrade --profile=work
 
   Flags (apply to upgrade):
     --profile=NAME           Apply a profile's package filter and level.
     --interactive, -i        No effect (upgrade always reviews candidates before executing).
+
+  Profiles read from: ~/.config/brewmaster/profiles.toml (XDG_CONFIG_HOME respected).
 
 CLEANUP & INTENT
   cleanup                    Report orphan/stale/pinned-old formulae (read-only by default).
@@ -94,7 +109,10 @@ CLEANUP & INTENT
   Flags (apply to cleanup):
     -n, --dry-run            Read-only report (also the default with no flags).
     --interactive, -i        fzf multi-select packages to remove (requires fzf).
-    --force                  Auto-remove orphans with cleanup score >= 7, no confirmation.
+    --force                  Auto-remove orphans with cleanup score >= 7, no confirmation (differs from snapshot's --force).
+
+  Cleanup score is 0-10, higher = safer to remove: the opposite direction
+  from dependency risk score (see DEPENDENCY RISK).
 
 AUDIT LOG & REPORTS
   log                        Show recent audit log entries (last 20 by default).
@@ -108,26 +126,14 @@ AUDIT LOG & REPORTS
     --since=Nd|Nh|Nw         Only entries within this time window (default unit: days).
     --format=table|json|csv  Output format (default: table).
 
+  Audit log stored in: ~/.local/share/brewmaster/audit.log (XDG_DATA_HOME respected).
+
 GENERAL
   -v, --verbose              More detailed output.
   -V, --version              Print version and exit.
   -h, --help                 Show this help.
 
-Notes:
-- --patch/--minor/--major and --level=X are equivalent; pick whichever reads
-  better in scripts vs interactively.
-- --force has different effects per command: 'snapshot delete' skips a y/N
-  confirmation; 'cleanup' auto-removes high-confidence orphans.
-- Two different 0-10 scores, opposite directions:
-    risk score (deps/--check-deps): higher = more dangerous to upgrade.
-      HIGH >= threshold (default 7), MEDIUM 4-6, LOW 0-3.
-    cleanup score (cleanup/why): higher = safer to remove.
-- -h/--help always prints this full reference; use `brewmaster help <command>`
-  for a shorter, per-command reference instead.
-- Pre-release (-rc.1) and +build metadata are ignored during comparison (only M.m.p).
-- Date/timestamp versions are skipped unless --allow-date is used.
-- Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
-- Audit log stored in: ~/.local/share/brewmaster/audit.log (XDG_DATA_HOME respected).
-- Profiles read from: ~/.config/brewmaster/profiles.toml (XDG_CONFIG_HOME respected).
+  -h/--help prints this full reference; use `brewmaster help <command>` for
+  a shorter, per-command reference instead.
 EOF
 }
