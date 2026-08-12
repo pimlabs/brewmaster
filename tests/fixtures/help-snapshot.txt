@@ -1,3 +1,5 @@
+brewmaster 0.10.0
+
 SNAPSHOT & ROLLBACK
   snapshot save              Save current Homebrew state to a snapshot.
   snapshot list              List all snapshots.
@@ -9,5 +11,7 @@ SNAPSHOT & ROLLBACK
   Flags:
     --label=TEXT             Label for 'snapshot save'.
     -n, --dry-run            Show plan without executing for 'snapshot restore'.
-    --force                  Skip the y/N confirmation for 'snapshot delete'.
+    --force                  Skip the y/N confirmation for 'snapshot delete' (differs from cleanup's --force).
+
+  Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 
