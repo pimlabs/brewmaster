@@ -125,13 +125,13 @@ Save current Homebrew state to a snapshot.
 .B snapshot list
 List all snapshots.
 .TP
-.B snapshot diff \fI[INDEX|PATH]\fR
+.B snapshot diff \fI[ref]\fR
 Show packages changed since a snapshot.
 .TP
-.B snapshot restore \fI[INDEX|PATH]\fR
+.B snapshot restore \fI[ref]\fR
 Restore packages to a snapshot state.
 .TP
-.B snapshot delete \fI[INDEX|PATH]\fR
+.B snapshot delete \fI[ref]\fR
 Delete a snapshot.
 e.g. brewmaster snapshot restore 0
 .PP
@@ -146,6 +146,9 @@ Show plan without executing for 'snapshot restore'.
 .B --force
 Skip the y/N confirmation for 'snapshot delete' (differs from cleanup's --force).
 .PP
+\fI[ref]\fR accepts either the numeric index shown by 'snapshot list', or a
+direct path to a saved snapshot file.
+.PP
 Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 .SS PROFILES
 .TP
@@ -158,7 +161,7 @@ Interactive wizard to add a new profile.
 .B profile edit \fI[name]\fR
 Open profiles.toml in $EDITOR.
 .TP
-.B profile diff \fIa\fR \fIb\fR
+.B profile diff \fIprofile_a\fR \fIprofile_b\fR
 Compare include lists between two profiles.
 .TP
 .B profile validate

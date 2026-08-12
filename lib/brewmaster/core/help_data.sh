@@ -69,9 +69,9 @@ DEPENDENCY RISK
 SNAPSHOT & ROLLBACK
   snapshot save              Save current Homebrew state to a snapshot.
   snapshot list              List all snapshots.
-  snapshot diff [INDEX|PATH]  Show packages changed since a snapshot.
-  snapshot restore [INDEX|PATH]  Restore packages to a snapshot state.
-  snapshot delete [INDEX|PATH]   Delete a snapshot.
+  snapshot diff [ref]        Show packages changed since a snapshot.
+  snapshot restore [ref]     Restore packages to a snapshot state.
+  snapshot delete [ref]      Delete a snapshot.
                              e.g. brewmaster snapshot restore 0
 
   Flags:
@@ -79,13 +79,16 @@ SNAPSHOT & ROLLBACK
     -n, --dry-run            Show plan without executing for 'snapshot restore'.
     --force                  Skip the y/N confirmation for 'snapshot delete' (differs from cleanup's --force).
 
+  [ref] accepts either the numeric index shown by 'snapshot list', or a
+  direct path to a saved snapshot file.
+
   Snapshots stored in: ~/.local/share/brewmaster/snapshots/ (XDG_DATA_HOME respected).
 
 PROFILES
   profile list               List configured profiles.
   profile create              Interactive wizard to add a new profile.
   profile edit [name]         Open profiles.toml in $EDITOR.
-  profile diff <a> <b>        Compare include lists between two profiles.
+  profile diff <profile_a> <profile_b>  Compare include lists between two profiles.
   profile validate             Check profiles.toml for errors.
                              e.g. brewmaster upgrade --profile=work
 
