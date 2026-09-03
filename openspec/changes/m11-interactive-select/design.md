@@ -40,32 +40,65 @@ from the other lets the same drift happen again.
 `start:` as a bind event needs a recent `fzf`. Version-number parsing is
 brittle (`0.44.1 (brew)`, distro suffixes, `fzf --version` format has
 changed) and would need updating as `fzf` evolves. Instead, probe the
-behavior directly, once per process, cached in a global:
+behavior directly, once per process, cached in a global.
+
+**The exit code that matters is 2, not "non-zero."** Measured against
+`fzf 0.44.1`:
+
+| Invocation | Exit |
+| ---------- | ---- |
+| `printf '' \| fzf --bind 'start:select-all' --filter=''` | 1 |
+| `printf '' \| fzf --bind 'bogusevent:select-all' --filter=''` | 2 |
+| `printf '' \| fzf --bind 'start:bogusaction' --filter=''` | 2 |
+
+Exit 1 is `fzf`'s "no match" for the empty input the probe deliberately
+feeds it — the bind was accepted. Exit 2 is the option-parse rejection
+that actually signals an unsupported bind. A probe written as
+`if fzf ... ; then` would read exit 1 as failure and report every
+capable `fzf` as incapable, silently disabling preselect-all and
+leaving the opt-in/opt-out split this milestone exists to remove. Test
+for 2 explicitly:
 
 ```bash
 _ui_fzf_supports_start() {
   [[ -n "${_UI_FZF_START:-}" ]] && return "$_UI_FZF_START"
-  if printf '' | fzf --bind 'start:select-all' --filter='' >/dev/null 2>&1; then
-    _UI_FZF_START=0
-  else
-    _UI_FZF_START=1
-  fi
+  printf '' | fzf --bind 'start:select-all' --filter='' >/dev/null 2>&1
+  # 2 = option parse error (bind unsupported); anything else = accepted.
+  # 1 is the expected "no match" for empty input, NOT a failure.
+  [[ $? -eq 2 ]] && _UI_FZF_START=1 || _UI_FZF_START=0
   return "$_UI_FZF_START"
 }
 ```
 
 `--filter` runs non-interactively and exits immediately on empty input,
 so the probe costs one short-lived process and never touches the
-terminal. **Verify during implementation** that a too-old `fzf` rejects
-the unknown bind at option-parse time (non-zero exit) rather than
-ignoring it — if it ignores it silently, the probe must instead assert
-on a bind known to be rejected. Do not build on this assumption without
-checking it against a real `fzf` first.
+terminal.
 
-When the probe fails, `preselect=all` degrades to nothing preselected,
-and the generated header omits nothing else — `ctrl-a: all` is still
-bound and still honest. The user gets one keystroke of extra work, not
-a broken picker.
+When the probe reports no support, `preselect=all` degrades to nothing
+preselected, and the generated header omits nothing else — `ctrl-a: all`
+is still bound and still honest. The user gets one keystroke of extra
+work, not a broken picker.
+
+### Verified against a real fzf
+
+Run on `fzf 0.44.1` (Debian build, older than any current Homebrew
+`fzf` — so a floor, not a best case):
+
+- `--bind 'start:select-all'` **works**: three input lines, all three
+  returned. Preselect-all is achievable as designed.
+- `fzf --multi` with nothing marked returns **exactly one line**, the
+  one under the cursor. The Enter-upgrades-one-package defect is
+  confirmed, not inferred.
+- `--marker='✓' --pointer='▸'` are **accepted** — the multi-byte glyph
+  concern behind the ASCII decision below did not reproduce. See
+  Decisions.
+
+Still unverified: that `ctrl-a` is bound to `beginning-of-line` by
+default rather than `select-all`. Keystroke injection through a pty
+failed in the environment used (the control case returned nothing
+either, so this is not negative evidence). Task 0.1 keeps it, to be
+checked on macOS against the Homebrew `fzf` the tool actually ships
+against.
 
 ### `upgrade`: opt-out and the risk column
 
@@ -134,12 +167,13 @@ truthful rather than silently contradicted.
 
 - **Marker/pointer glyphs.** ARCHIVE_ROADMAP draws `[x]`/`[ ]`. `fzf`'s
   `--marker`/`--pointer` take a single display cell, so literal `[x]`
-  is not expressible; `--marker='x' --pointer='>'` is the closest
-  faithful rendering and stays ASCII, which matters because this output
+  is not expressible. `--marker='x' --pointer='>'` is the closest
+  faithful ASCII rendering and is the default choice, since this output
   is not covered by `NO_COLOR` and has to survive any terminal font.
-  Multi-byte glyphs (`✓`, `▸`) render better on modern terminals but
-  need a recent `fzf` for `--marker` width handling; not worth a second
-  probe. Revisit only if the maintainer prefers the nicer glyphs.
+  The original reason to rule out `✓`/`▸` — that older `fzf` might
+  reject multi-byte markers — was tested and did not hold (accepted on
+  0.44.1), so this is now purely a taste call the maintainer can flip
+  in task 1.2 at no technical cost.
 - **`--height=60%` inline rather than full screen.** The risk warnings
   `run_upgrade` prints before the gate (`Warning: <pkg> risk N/10`) are
   the context the user needs while deciding. Full-screen `fzf` erases

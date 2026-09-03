@@ -1,21 +1,28 @@
 ## 0. Verify the assumptions before writing code
 
-- [ ] 0.1 On a machine with `fzf` installed, confirm the two reported
-      defects reproduce: `ctrl-a` in the `upgrade` review gate does not
-      select all, and Enter with nothing marked upgrades exactly one
-      package. Record the `fzf --version` used.
-- [ ] 0.2 Confirm the `_ui_fzf_supports_start` probe discriminates:
-      `printf '' | fzf --bind 'start:select-all' --filter='' ` exits 0
-      on a current `fzf`, and non-zero on one predating the `start:`
-      event. If an old `fzf` accepts the unknown bind silently, pick a
-      different probe before proceeding — design.md flags this as the
-      one unverified assumption in the plan.
+- [ ] 0.1 On macOS with the Homebrew `fzf`, confirm `ctrl-a` in the
+      `upgrade` review gate does not select all. (The other half of this
+      check — Enter with nothing marked selecting exactly one row — is
+      already confirmed on `fzf 0.44.1`; see task 0.2.) Record the
+      `fzf --version` used.
+- [x] 0.2 Confirm the `_ui_fzf_supports_start` probe discriminates.
+      **Done — and it found the probe as first drafted was wrong.**
+      Measured on `fzf 0.44.1`: a supported bind exits **1** (`fzf`'s
+      "no match" for the empty probe input), while an unsupported event
+      or action exits **2** (option parse error). The original
+      `if fzf ...; then` form would have read every capable `fzf` as
+      incapable. design.md now specifies testing for exit 2 explicitly.
+      Also confirmed in the same run: `start:select-all` genuinely
+      preselects all rows, `fzf --multi` with nothing marked returns
+      exactly one line, and `--marker='✓' --pointer='▸'` parse fine.
 
 ## 1. Add the shared picker helper to ui.sh
 
 - [ ] 1.1 Add `_ui_fzf_supports_start` to
       `lib/brewmaster/core/ui.sh` — probe once, cache the result in
-      `_UI_FZF_START`, return it on later calls
+      `_UI_FZF_START`, return it on later calls. Discriminate on exit
+      **2**, not on non-zero (see design.md; exit 1 means the bind was
+      accepted)
 - [ ] 1.2 Add `ui_select "$preselect" "$prompt" [extra fzf args...]`
       with the header comment convention every public function in this
       project uses (purpose, args, stdout, return code). It applies
