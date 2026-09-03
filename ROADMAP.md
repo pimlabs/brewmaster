@@ -54,6 +54,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M8 — Visual Polish              | v0.9.0   | `[x] done`   |
 | M9 — Manual & Help              | v0.10.0  | `[x] done`   |
 | M10 — Colorized Help            | v0.11.0  | `[x] done`   |
+| M11 — Interactive Selection UX  | v0.12.0  | `[ ] proposed` |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > Full scope, function contracts, and acceptance criteria for M0–M5:
@@ -524,3 +525,77 @@ brewmaster --help | cat           # non-TTY: no color codes leak into pipes
 
 See `openspec/changes/archive/2026-08-11-m10-colorized-help/` for the
 full proposal, design, specs, and tasks record.
+
+---
+
+### Milestone 11 — Interactive Selection UX
+
+**Status:** `[ ] proposed` **Branch:** `feat/interactive-select` **Version:** `v0.12.0` **Depends on:** M4, M7, M8
+
+#### Scope
+
+The `fzf` multi-select in `cleanup --interactive` (M4) and `upgrade`'s
+review gate (M7) never matched the UI their own frozen design
+documented. `docs/ARCHIVE_ROADMAP.md` already specifies `[x]`/`[ ]`
+checkbox markers, a `ctrl-a: select all` / `ctrl-d: deselect` key row,
+and a visible risk score per row (:355-372 for upgrade, :478-495 for
+cleanup). What shipped is a bare `fzf --multi --ansi` with no `--bind`,
+no `--marker`, no `--pointer`, and no `--height`.
+
+Three consequences, in descending severity:
+
+1. Both call sites advertise `ctrl-a: all` in their header while
+   `ctrl-a` stays bound to fzf's default `beginning-of-line` — the
+   advertised action does not exist (`upgrade.sh:140`,
+   `cleanup.sh:346`).
+2. `fzf --multi` with nothing marked returns the line under the cursor,
+   so pressing Enter to confirm the batch upgrades exactly one package
+   — contradicting the `--help` promise of a whole-batch review.
+3. `upgrade` is opt-in with `fzf` (zero preselected) and opt-out
+   without it (`Upgrade all? [y/N]`) — two mental models for one
+   command, depending on whether an optional dependency is installed.
+
+Underneath all three: the `fzf` invocation is hand-rolled twice with
+nothing binding the header text to the keys actually bound. This is the
+one interactive surface M8's `ui.sh` consolidation never reached.
+
+The fix: one shared picker helper in `lib/brewmaster/core/ui.sh` that
+generates its key header from the bind list it applies, takes the
+preselect mode from the caller (`upgrade` opt-out, `cleanup` opt-in —
+removal stays explicit per ROADMAP convention 11), renders inline instead of
+full-screen, and returns non-zero when `fzf` is missing so callers keep
+their own fallback. The risk score already carried in `upgrade_meta`
+becomes visible in the picker row.
+
+#### Files
+
+- `lib/brewmaster/core/ui.sh` — `ui_select` and its `fzf` capability probe
+- `lib/brewmaster/upgrade.sh` — review gate consumes the helper; risk column
+- `lib/brewmaster/cleanup.sh` — `--interactive` consumes the helper
+- `lib/brewmaster/core/help_data.sh`, `docs/brewmaster.1`,
+  `tests/fixtures/help*.txt` — review-gate wording now describes opt-out
+- `tests/test_{audit,profile,cleanup}.sh` — `fzf` mocks record their
+  args so binds and header can be asserted
+
+#### Acceptance Criteria
+
+```
+# Every key named in the picker header is present in the --bind string, and vice versa
+brewmaster --minor             # all candidates start selected; Enter upgrades the batch
+brewmaster --minor             # risk score visible per row when dependency checking is on
+brewmaster cleanup -i          # nothing preselected; removal stays explicit
+brewmaster --minor --dry-run   # unchanged: table, no gate, fzf never invoked
+brewmaster --minor --yes       # unchanged: no gate
+# All test files pass; shellcheck clean on bin/brewmaster and lib/brewmaster/**/*.sh
+```
+
+#### Open decision
+
+Adding a no-`fzf` fallback to `cleanup --interactive` (replacing today's
+hard `exit 1`) is **contested and not approved**. `ARCHIVE_ROADMAP.md:370`
+freezes the hard-exit as the M4 contract, and `tests/test_cleanup.sh`
+test 24 asserts it. It is isolated as task 6 of the proposal and needs
+an explicit freeze exemption before implementation.
+
+See `openspec/changes/m11-interactive-select/` for the proposal, design,
+specs, and tasks.
