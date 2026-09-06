@@ -18,12 +18,12 @@
 
 ## 1. Add the shared picker helper to ui.sh
 
-- [ ] 1.1 Add `_ui_fzf_supports_start` to
+- [x] 1.1 Add `_ui_fzf_supports_start` to
       `lib/brewmaster/core/ui.sh` — probe once, cache the result in
       `_UI_FZF_START`, return it on later calls. Discriminate on exit
       **2**, not on non-zero (see design.md; exit 1 means the bind was
       accepted)
-- [ ] 1.2 Add `ui_select "$preselect" "$prompt" [extra fzf args...]`
+- [x] 1.2 Add `ui_select "$preselect" "$prompt" [extra fzf args...]`
       with the header comment convention every public function in this
       project uses (purpose, args, stdout, return code). It applies
       `--multi --ansi --height=60% --layout=reverse --border`,
@@ -31,10 +31,10 @@
       `--bind 'ctrl-a:select-all,ctrl-d:deselect-all,tab:toggle+down'`,
       adding `start:select-all` only when `preselect=all` and the probe
       succeeds
-- [ ] 1.3 Build the `--header` string in the same function, from the
+- [x] 1.3 Build the `--header` string in the same function, from the
       same bind list, so a key can only be advertised if it was bound —
       the invariant this milestone exists to establish
-- [ ] 1.4 Return 1 (not `exit`) when `fzf` is absent, so callers own
+- [x] 1.4 Return 1 (not `exit`) when `fzf` is absent, so callers own
       their own fallback
 
 ## 2. Route the upgrade review gate through the helper
