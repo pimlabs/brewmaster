@@ -50,12 +50,12 @@
 
 ## 3. Show the risk score in the upgrade picker
 
-- [ ] 3.1 Rebuild `report_rows` through `ui_table_row` so picker
+- [x] 3.1 Rebuild `report_rows` through `ui_table_row` so picker
       columns align with the rest of the CLI's tables
-- [ ] 3.2 Append the risk score column when `$CHECK_DEPS` is set,
+- [x] 3.2 Append the risk score column when `$CHECK_DEPS` is set,
       reading it from `upgrade_meta` (already carried, never displayed)
       and coloring it with the existing `_depgraph_risk_color`
-- [ ] 3.3 Verify the non-`fzf` fallback table and the `--dry-run` table
+- [x] 3.3 Verify the non-`fzf` fallback table and the `--dry-run` table
       render the same rows — one row builder, three consumers
 
 ## 4. Route cleanup --interactive through the helper
