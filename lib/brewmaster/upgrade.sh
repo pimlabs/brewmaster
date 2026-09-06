@@ -134,15 +134,18 @@ run_upgrade() {
       for i in "${!upgrade_list[@]}"; do
         fzf_display+=("${upgrade_list[$i]}"$'\t'"${report_rows[$i]}")
       done
+      # Opt-out: every candidate starts selected, so Enter with nothing
+      # deselected upgrades the whole batch — the same semantics as the
+      # no-fzf [y/N] below.
       local selected
-      selected="$(printf '%s\n' "${fzf_display[@]}" | \
-        fzf --multi --ansi \
-            --header='tab: toggle · ctrl-a: all · enter: upgrade' \
-            --prompt='Select packages > ' | \
-        cut -f1)"
+      selected="$(printf '%s\n' "${fzf_display[@]}" | ui_select all 'Upgrade > ' | cut -f1)"
+      # One newline-framed haystack and one substring test per candidate:
+      # no subprocess inside the loop, and no associative array, which
+      # macOS's stock bash 3.2 lacks.
+      local haystack=$'\n'"${selected}"$'\n'
       local -a new_list=() new_rows=() new_meta=()
       for i in "${!upgrade_list[@]}"; do
-        echo "$selected" | grep -qFx "${upgrade_list[$i]}" || continue
+        [[ "$haystack" == *$'\n'"${upgrade_list[$i]}"$'\n'* ]] || continue
         new_list+=("${upgrade_list[$i]}")
         new_rows+=("${report_rows[$i]}")
         new_meta+=("${upgrade_meta[$i]}")

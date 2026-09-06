@@ -39,13 +39,13 @@
 
 ## 2. Route the upgrade review gate through the helper
 
-- [ ] 2.1 Replace the inline `fzf` call in `lib/brewmaster/upgrade.sh`
+- [x] 2.1 Replace the inline `fzf` call in `lib/brewmaster/upgrade.sh`
       (currently lines 138-142) with `ui_select all 'Upgrade > '`,
       deleting the hand-written `--header`
-- [ ] 2.2 Replace the per-candidate `echo "$selected" | grep -qFx`
+- [x] 2.2 Replace the per-candidate `echo "$selected" | grep -qFx`
       filter loop with a single associative-array lookup built once
       from the selection
-- [ ] 2.3 Confirm `--dry-run` and `--yes` still bypass the gate exactly
+- [x] 2.3 Confirm `--dry-run` and `--yes` still bypass the gate exactly
       as before, and that a zero-candidate run never reaches `ui_select`
 
 ## 3. Show the risk score in the upgrade picker
