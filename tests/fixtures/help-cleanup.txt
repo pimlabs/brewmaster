@@ -1,4 +1,4 @@
-brewmaster 0.11.0
+brewmaster 0.12.0
 
 CLEANUP & INTENT
   cleanup                    Report orphan/stale/pinned-old formulae (read-only by default).

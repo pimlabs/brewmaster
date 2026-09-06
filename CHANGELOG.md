@@ -7,6 +7,48 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.12.0] — 2026-09-06
+
+### Added
+
+- `ui_select` in `lib/brewmaster/core/ui.sh` — the one `fzf` multi-select
+  for the CLI: inline height, `>` pointer distinct from the `x` marker,
+  `tab`/`ctrl-a`/`ctrl-d`/`enter` binds, and a key header generated from
+  the same bind table, so a key can only be advertised if it is bound. It
+  probes once whether the running `fzf` accepts `start:select-all`
+  (exit 2 = unsupported) and degrades to no preselect otherwise; a missing
+  `fzf` returns 1 to the caller instead of exiting
+- The `upgrade` review picker shows each candidate's dependency risk score
+  (`risk:N`, colored by band) when `--check-deps` is on
+- `tests/run_all.sh`, the runner `AGENTS.md` documents, and
+  `tests/test_ui.sh` (19 assertions on the assembled `fzf` invocation)
+
+### Changed
+
+- **`upgrade`'s review gate is opt-out with `fzf`**: every candidate
+  starts selected, deselect what you don't want, Enter upgrades the
+  batch — the same semantics as the no-`fzf` `[y/N]` prompt. Previously
+  nothing was preselected and Enter on an unmarked list upgraded only
+  the row under the cursor
+- `cleanup --interactive` uses the same picker with nothing preselected
+  (removal stays explicit); its hard exit without `fzf` is unchanged
+- Upgrade candidate rows are built once through `ui_table_row` and shared
+  by the `--dry-run` plan, the no-`fzf` table, the picker and the
+  "Upgrading N package(s)" listing, aligned like the CLI's other tables
+- `--help` describes the opt-out review; `docs/brewmaster.1` regenerated
+
+### Fixed
+
+- Both pickers advertised `ctrl-a: all` while `ctrl-a` was still `fzf`'s
+  default `beginning-of-line`; `ctrl-a` now selects all and `ctrl-d`
+  deselects all
+- Enter in the `upgrade` picker with nothing marked upgraded exactly one
+  package instead of the reviewed batch
+- `ROADMAP.md`: M6–M8 shipped together in `v0.10.0`, not
+  `v0.7.0`/`v0.8.0`/`v0.9.0` (no `v0.9.0` ever existed)
+- `tests/test_cli.sh`'s no-`fzf` cases no longer depend on `fzf` being
+  absent from `/usr/bin`
+
 ## [0.11.0] — 2026-08-11
 
 ### Added
