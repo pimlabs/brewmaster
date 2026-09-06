@@ -1,7 +1,9 @@
 ## 0. Verify the assumptions before writing code
 
-- [ ] 0.1 On macOS with the Homebrew `fzf`, confirm `ctrl-a` in the
-      `upgrade` review gate does not select all. (The other half of this
+- [x] 0.1 On macOS with the Homebrew `fzf`, confirm `ctrl-a` in the
+      `upgrade` review gate does not select all.
+      **Superseded, not run:** `ui_select` binds `ctrl-a` explicitly, so
+      whether the old default was select-all no longer matters. (The other half of this
       check — Enter with nothing marked selecting exactly one row — is
       already confirmed on `fzf 0.44.1`; see task 0.2.) Record the
       `fzf --version` used.
@@ -85,13 +87,15 @@
 
 ## 6. Docs
 
-- [ ] 6.1 Update the review-gate paragraph in
+- [x] 6.1 Update the review-gate paragraph in
       `lib/brewmaster/core/help_data.sh` to describe opt-out selection
       ("all candidates start selected; deselect what you don't want")
-- [ ] 6.2 Regenerate `docs/brewmaster.1` via `docs/gen-man.sh` and the
+- [x] 6.2 Regenerate `docs/brewmaster.1` via `docs/gen-man.sh` and the
       `tests/fixtures/help*.txt` fixtures; confirm `tests/test_docs.sh`
       drift check passes
-- [ ] 6.3 Add the `CHANGELOG.md` entry under a new `[0.12.0]` heading
-- [ ] 6.4 Flip M11's status to `[x] done` in `ROADMAP.md` and record
+- [x] 6.3 Add the `CHANGELOG.md` entry under a new `[0.12.0]` heading
+      — done in the version-bump commit, where every release since
+      v0.10.0 has put it (see `chore: bump version to 0.11.0`)
+- [x] 6.4 Flip M11's status to `[x] done` in `ROADMAP.md` and record
       what was actually built versus planned, following the
       scope-note convention M6-M10 established
