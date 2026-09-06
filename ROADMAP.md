@@ -49,14 +49,17 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M3 — Profile System             | v0.4.0   | `[x] done`   |
 | M4 — Cleanup & Intent           | v0.5.0   | `[x] done`   |
 | M5 — Audit Log & Report         | v0.6.0   | `[x] done`   |
-| M6 — Performance                | v0.7.0   | `[x] done`   |
-| M7 — Upgrade Checklist          | v0.8.0   | `[x] done`   |
-| M8 — Visual Polish              | v0.9.0   | `[x] done`   |
+| M6 — Performance                | v0.10.0  | `[x] done`   |
+| M7 — Upgrade Checklist          | v0.10.0  | `[x] done`   |
+| M8 — Visual Polish              | v0.10.0  | `[x] done`   |
 | M9 — Manual & Help              | v0.10.0  | `[x] done`   |
 | M10 — Colorized Help            | v0.11.0  | `[x] done`   |
 | M11 — Interactive Selection UX  | v0.12.0  | `[ ] proposed` |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
+> M6–M9 shipped together in v0.10.0 (2026-08-11). The `(M6)`/`(M7)` labels on
+> CHANGELOG's v0.7.0/v0.8.0 entries predate the current milestone numbering,
+> and there was never a v0.9.0.
 > Full scope, function contracts, and acceptance criteria for M0–M5:
 > see [`docs/ARCHIVE_ROADMAP.md`](docs/ARCHIVE_ROADMAP.md).
 
@@ -100,7 +103,7 @@ These were considered and explicitly deferred:
 
 ### Milestone 6 — Performance
 
-**Status:** `[x] done` **Branch:** `perf/cache-first` **Version:** `v0.7.0` **Depends on:** M0, M4
+**Status:** `[x] done` **Branch:** `perf/cache-first` **Version:** `v0.10.0` **Depends on:** M0, M4
 
 #### Scope (as actually built — see below for how this differs from the original plan)
 
@@ -186,7 +189,7 @@ and why the scope changed.
 
 ### Milestone 7 — Upgrade Checklist
 
-**Status:** `[x] done` **Branch:** `feat/checklist` **Version:** `v0.8.0` **Depends on:** M0, M2, M3
+**Status:** `[x] done` **Branch:** `feat/checklist` **Version:** `v0.10.0` **Depends on:** M0, M2, M3
 
 #### Scope (as actually built — see below for how this differs from the original plan)
 
@@ -269,7 +272,7 @@ implementation and why the scope changed.
 
 ### Milestone 8 — Visual Polish
 
-**Status:** `[x] done` **Branch:** `feat/visual` **Version:** `v0.9.0` **Depends on:** M0, M4, M5, M6, M7
+**Status:** `[x] done` **Branch:** `feat/visual` **Version:** `v0.10.0` **Depends on:** M0, M4, M5, M6, M7
 
 #### Scope (as actually built — see below for how this differs from the original plan)
 
