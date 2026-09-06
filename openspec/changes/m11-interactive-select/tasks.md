@@ -60,12 +60,12 @@
 
 ## 4. Route cleanup --interactive through the helper
 
-- [ ] 4.1 Replace the inline `fzf` call in
+- [x] 4.1 Replace the inline `fzf` call in
       `lib/brewmaster/cleanup.sh` (currently lines 343-348) with
       `ui_select none 'Select packages to remove > '`, passing
       `--delimiter='|' --with-nth=2,1,3,4` and the existing `--preview`
       through as extra args, and deleting the hand-written `--header`
-- [ ] 4.2 Confirm opt-in behavior is preserved — nothing preselected,
+- [x] 4.2 Confirm opt-in behavior is preserved — nothing preselected,
       per AGENTS.md convention 10
 
 ## 5. Tests
