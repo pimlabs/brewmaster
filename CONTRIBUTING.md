@@ -104,8 +104,12 @@ Review the generated proposal against ROADMAP.md scope before running `/opsx:app
 
 Then:
 - Update ROADMAP.md status: `[ ] planned` → `[x] done`
-- Tag the release: `git tag -a vX.Y.0 -m "release: vX.Y.0 — milestone name"`
-- Add changelog entry: `docs(changelog): add vX.Y.0 release notes`
+- Open the bump PR: `CHANGELOG.md` entry for `[X.Y.0]`, `BREWMASTER_VERSION`
+  and `BUILD_DATE` in `bin/brewmaster`, `docs/brewmaster.1` and
+  `tests/fixtures/help*.txt` regenerated. Squash-merge it as
+  `chore: bump version to X.Y.0 — milestone name`
+- Merging that commit tags and releases `vX.Y.0` (see Tagging & Releases);
+  no manual tag push needed
 
 ---
 
@@ -348,14 +352,29 @@ brewmaster follows [Semantic Versioning](https://semver.org) strictly.
 
 ## Tagging & Releases
 
-Tags follow strict semver:
+Tags follow strict semver, and `.github/workflows/release.yml` creates
+them. It runs on every push to `main` and releases only when the head
+commit is the version bump (`chore: bump version to X.Y.Z ...`) and
+`vX.Y.Z` is not tagged yet, so merging the bump PR is the release:
 
-```
-git tag -a v0.7.0 -m "release: v0.7.0 — performance"
-git tag -a v0.8.0 -m "release: v0.8.0 — upgrade checklist"
-```
+1. an annotated tag `vX.Y.Z` with message
+   `release: vX.Y.Z — short milestone description`, the description taken
+   from the bump commit subject after ` — ` (omitted if there is none)
+2. a GitHub release named `vX.Y.Z` whose body is the `[X.Y.Z]` section of
+   `CHANGELOG.md` (the run fails if that section is missing, so a release
+   never ships without notes)
+3. the `pimlabs/homebrew-tap` formula updated to the new tag
 
-Tag message format: `release: vX.Y.Z — short milestone description`
+Two other ways in, for when the automatic path does not fit:
+
+- **Run workflow** (`workflow_dispatch`) on `main`, with an optional
+  description for the tag message; useful when the bump landed without
+  a ` — ` description or to redo a release
+- a hand-pushed tag still works: `git tag -a v0.7.0 -m "release: v0.7.0 — performance"`
+  then `git push origin v0.7.0`; the workflow releases that tag as before
+
+The tag is created with `GITHUB_TOKEN`, which never triggers other
+workflows, so tag, release and formula update all happen in one run.
 
 ---
 

@@ -1,24 +1,103 @@
 name: Release
 
+# Three ways in, one release path out:
+#   - push of a v* tag    → release that tag (the original flow, unchanged)
+#   - push to main        → auto-release, only when the head commit is the
+#                           bump ("chore: bump version to X.Y.Z ...") and
+#                           vX.Y.Z is not tagged yet; every other push to
+#                           main is a no-op
+#   - workflow_dispatch   → release BREWMASTER_VERSION on demand, with an
+#                           optional description for the tag message
+# The tag is created here with GITHUB_TOKEN when it does not exist yet.
+# Tags created by GITHUB_TOKEN never trigger other workflows, so tagging,
+# the GitHub release and the formula update all happen in this one run.
+
 on:
   push:
     tags:
       - 'v*'
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      description:
+        description: 'Milestone description for the tag message: release: vX.Y.Z — <description>'
+        required: false
+        default: ''
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      released: ${{ steps.resolve.outputs.released }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Extract changelog section for this version
+      - name: Resolve version and tag
+        id: resolve
+        env:
+          DISPATCH_DESCRIPTION: ${{ github.event.inputs.description }}
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+            VERSION="${TAG#v}"
+            NEEDS_TAG=false
+          else
+            VERSION="$(grep -m1 '^BREWMASTER_VERSION=' bin/brewmaster | cut -d'"' -f2)"
+            [[ -n "$VERSION" ]] || { echo "BREWMASTER_VERSION not found in bin/brewmaster" >&2; exit 1; }
+            TAG="v$VERSION"
+            SUBJECT="$(git log -1 --format=%s)"
+            if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+              case "$SUBJECT" in
+                "chore: bump version to $VERSION"*) ;;
+                *)
+                  echo "Head commit is not the bump for $VERSION ('$SUBJECT'); nothing to release."
+                  echo "released=false" >> "$GITHUB_OUTPUT"
+                  echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+                  exit 0 ;;
+              esac
+            fi
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+              echo "$TAG already exists; nothing to release."
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            NEEDS_TAG=true
+          fi
+          # Tag message: "release: vX.Y.Z — <description>" (CONTRIBUTING.md).
+          # The description comes from the workflow_dispatch input, else from
+          # the bump commit subject after " — " (e.g. "chore: bump version to
+          # 0.12.0 — M11 Interactive Selection UX"), else it is omitted.
+          DESC="${DISPATCH_DESCRIPTION:-}"
+          if [[ -z "$DESC" ]]; then
+            SUBJECT="$(git log -1 --format=%s)"
+            case "$SUBJECT" in
+              *" — "*) DESC="${SUBJECT#* — }"; DESC="${DESC%% (#*}" ;;
+            esac
+          fi
+          MESSAGE="release: $TAG"
+          [[ -n "$DESC" ]] && MESSAGE="$MESSAGE — $DESC"
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "needs_tag=$NEEDS_TAG"
+            echo "message=$MESSAGE"
+            echo "released=true"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG ($MESSAGE)"
+
+      - name: Extract changelog section for this version
+        if: steps.resolve.outputs.released == 'true'
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
           awk -v ver="[$VERSION]" '
             $0 ~ /^## \[/ {
               if (capture) exit
@@ -27,24 +106,44 @@ jobs:
             }
             capture { print }
           ' CHANGELOG.md > /tmp/release-notes.md
+          if ! grep -q '[^[:space:]]' /tmp/release-notes.md; then
+            echo "CHANGELOG.md has no [$VERSION] section; refusing to release without notes." >&2
+            exit 1
+          fi
+
+      - name: Create annotated tag
+        if: steps.resolve.outputs.released == 'true' && steps.resolve.outputs.needs_tag == 'true'
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          MESSAGE: ${{ steps.resolve.outputs.message }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$MESSAGE"
+          git push origin "refs/tags/$TAG"
 
       - name: Create GitHub Release
+        if: steps.resolve.outputs.released == 'true'
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ steps.resolve.outputs.tag }}
+          name: ${{ steps.resolve.outputs.tag }}
           generate_release_notes: false
           body_path: /tmp/release-notes.md
 
   update-formula:
     needs: release
+    if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
 
     steps:
       - name: Update Homebrew formula
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
         run: |
           set -euo pipefail
-          TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
           TAP="pimlabs/homebrew-tap"
           PATH_="Formula/brewmaster.rb"
