@@ -20,15 +20,19 @@ esac
 EOF
 chmod +x "$MOCK/brew"
 
-# jq is a real dependency (used for audit log entries); symlink it into MOCK
-# so `run_no_fzf` below can drop the rest of PATH (where a real host `fzf`
-# might live, e.g. Homebrew's bin) without losing jq too.
-ln -s "$(command -v jq)" "$MOCK/jq"
-
 run()  { PATH="$MOCK:$PATH" "$BM" "$@"; }      # brewmaster with mock brew
-# Same, but PATH is restricted to MOCK + bare-minimum system dirs, so no real
-# `fzf` on the host machine can be found — exercises the no-fzf fallback.
-run_no_fzf() { PATH="$MOCK:/usr/bin:/bin" "$BM" "$@"; }
+# Same, but with fzf hidden from `command -v` inside the child process via
+# an exported shell function, the same override the sourced test files
+# use. Hiding it by trimming PATH would have to guess where a real fzf
+# lives (Homebrew's bin on macOS, /usr/bin on Linux distros); this works
+# wherever it is installed — exercises the no-fzf fallback.
+run_no_fzf() {
+  command() { [[ "$1" == "-v" && "${2:-}" == "fzf" ]] && return 1; builtin command "$@"; }
+  export -f command
+  PATH="$MOCK:$PATH" "$BM" "$@"; local rc=$?
+  unset -f command
+  return "$rc"
+}
 rows() { grep -c '  - ' || true; }             # count candidate rows
 
 pass=0; fail=0

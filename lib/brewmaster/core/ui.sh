@@ -140,3 +140,60 @@ ui_section() {
 ui_summary() {
   echo "$1"
 }
+
+# _ui_fzf_supports_start — probe once whether the running fzf accepts the
+# `start:` bind event (what preselect-all needs), caching the answer in
+# _UI_FZF_START so the probe costs one short-lived fzf per process. The
+# probe feeds fzf empty input under --filter: exit 1 is fzf's "no match"
+# and means the bind was accepted; exit 2 (option parse error) is the
+# only result that means "unsupported".
+# Args:   none
+# Stdout: none (sets global _UI_FZF_START: 0 supported, 1 unsupported)
+# Return: 0 if supported, 1 otherwise
+_ui_fzf_supports_start() {
+  if [[ -n "${_UI_FZF_START:-}" ]]; then return "$_UI_FZF_START"; fi
+  local rc=0
+  printf '' | fzf --bind 'start:select-all' --filter='' >/dev/null 2>&1 || rc=$?
+  if (( rc == 2 )); then _UI_FZF_START=1; else _UI_FZF_START=0; fi
+  return "$_UI_FZF_START"
+}
+
+# ui_select "$preselect" "$prompt" [extra fzf args...]
+# The one fzf multi-select in the CLI. Reads candidate lines on stdin and
+# prints the confirmed selection on stdout, one line each. Every option
+# the call sites share lives here, and the key header is generated from
+# the same table as the --bind string, so a key can only be advertised
+# if it is actually bound.
+# Args:   $1 preselect: "all" (every row starts selected; the user
+#            deselects — opt-out) or "none" (nothing selected — opt-in)
+#         $2 prompt text
+#         $3.. extra fzf args passed through verbatim (--delimiter,
+#            --with-nth, --preview, ...)
+# Stdout: selected lines (empty when nothing was confirmed)
+# Return: 1 if fzf is not installed (no exit — the caller owns its
+#         fallback); otherwise fzf's own status (0 confirmed, 1 nothing
+#         selected, 130 aborted with Esc/ctrl-c)
+ui_select() {
+  local preselect="$1" prompt="$2"; shift 2
+  command -v fzf >/dev/null 2>&1 || return 1
+  # key|action|label — one table drives both --bind and --header.
+  local -a keys=(
+    "tab|toggle+down|toggle"
+    "ctrl-a|select-all|all"
+    "ctrl-d|deselect-all|none"
+    "enter|accept|confirm"
+  )
+  local entry key action label binds="" header=""
+  for entry in "${keys[@]}"; do
+    IFS='|' read -r key action label <<<"$entry"
+    binds+="${binds:+,}${key}:${action}"
+    header+="${header:+ · }${key}: ${label}"
+  done
+  # start: is an event, not a key — it never appears in the header.
+  if [[ "$preselect" == "all" ]] && _ui_fzf_supports_start; then
+    binds="start:select-all,${binds}"
+  fi
+  fzf --multi --ansi --height=60% --layout=reverse --border \
+      --pointer='>' --marker='x' \
+      --bind="$binds" --header="$header" --prompt="$prompt" "$@"
+}

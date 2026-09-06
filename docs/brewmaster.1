@@ -89,9 +89,12 @@ Filter/level from a named profile (see PROFILES).
 .B --interactive, -i
 No effect (review below is now always shown; kept for compatibility).
 .PP
-Before executing, candidates are always shown for review: fzf multi-select if
-installed, else a table plus a single \fI[y/N]\fR for the whole batch. --dry-run and
---yes both skip this (--dry-run shows the table and stops; --yes upgrades all).
+Before executing, candidates are always shown for review. With fzf installed
+every candidate starts selected: deselect what you don't want (tab: toggle,
+ctrl-a: all, ctrl-d: none), then enter; with --check-deps each row shows its
+risk score. Without fzf: a table plus a single \fI[y/N]\fR for the whole batch.
+--dry-run and --yes both skip this (--dry-run shows the table and stops;
+--yes upgrades all).
 .PP
 Version comparison ignores pre-release (-rc.1) and +build metadata (only
 M.m.p is compared); date/timestamp versions (YYYY.MM.DD) are skipped

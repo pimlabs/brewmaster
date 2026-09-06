@@ -340,11 +340,10 @@ cleanup_main() {
     ui_progress_clear
 
     local selected
-    selected="$(printf '%s\n' "$rows" | fzf --multi --ansi \
+    # Opt-in: nothing preselected — removal stays explicit (convention 10).
+    selected="$(printf '%s\n' "$rows" | ui_select none 'Select packages to remove > ' \
       --delimiter='|' --with-nth=2,1,3,4 \
-      --preview="cat '$tmpdir/{1}.why'" \
-      --header='tab: toggle . ctrl-a: all . enter: remove selected' \
-      --prompt='Select packages to remove > ')"
+      --preview="cat '$tmpdir/{1}.why'")"
 
     if [[ -z "$selected" ]]; then
       echo "Nothing selected."

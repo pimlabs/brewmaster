@@ -49,13 +49,17 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M3 — Profile System             | v0.4.0   | `[x] done`   |
 | M4 — Cleanup & Intent           | v0.5.0   | `[x] done`   |
 | M5 — Audit Log & Report         | v0.6.0   | `[x] done`   |
-| M6 — Performance                | v0.7.0   | `[x] done`   |
-| M7 — Upgrade Checklist          | v0.8.0   | `[x] done`   |
-| M8 — Visual Polish              | v0.9.0   | `[x] done`   |
+| M6 — Performance                | v0.10.0  | `[x] done`   |
+| M7 — Upgrade Checklist          | v0.10.0  | `[x] done`   |
+| M8 — Visual Polish              | v0.10.0  | `[x] done`   |
 | M9 — Manual & Help              | v0.10.0  | `[x] done`   |
 | M10 — Colorized Help            | v0.11.0  | `[x] done`   |
+| M11 — Interactive Selection UX  | v0.12.0  | `[x] done`   |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
+> M6–M9 shipped together in v0.10.0 (2026-08-11). The `(M6)`/`(M7)` labels on
+> CHANGELOG's v0.7.0/v0.8.0 entries predate the current milestone numbering,
+> and there was never a v0.9.0.
 > Full scope, function contracts, and acceptance criteria for M0–M5:
 > see [`docs/ARCHIVE_ROADMAP.md`](docs/ARCHIVE_ROADMAP.md).
 
@@ -99,7 +103,7 @@ These were considered and explicitly deferred:
 
 ### Milestone 6 — Performance
 
-**Status:** `[x] done` **Branch:** `perf/cache-first` **Version:** `v0.7.0` **Depends on:** M0, M4
+**Status:** `[x] done` **Branch:** `perf/cache-first` **Version:** `v0.10.0` **Depends on:** M0, M4
 
 #### Scope (as actually built — see below for how this differs from the original plan)
 
@@ -185,7 +189,7 @@ and why the scope changed.
 
 ### Milestone 7 — Upgrade Checklist
 
-**Status:** `[x] done` **Branch:** `feat/checklist` **Version:** `v0.8.0` **Depends on:** M0, M2, M3
+**Status:** `[x] done` **Branch:** `feat/checklist` **Version:** `v0.10.0` **Depends on:** M0, M2, M3
 
 #### Scope (as actually built — see below for how this differs from the original plan)
 
@@ -268,7 +272,7 @@ implementation and why the scope changed.
 
 ### Milestone 8 — Visual Polish
 
-**Status:** `[x] done` **Branch:** `feat/visual` **Version:** `v0.9.0` **Depends on:** M0, M4, M5, M6, M7
+**Status:** `[x] done` **Branch:** `feat/visual` **Version:** `v0.10.0` **Depends on:** M0, M4, M5, M6, M7
 
 #### Scope (as actually built — see below for how this differs from the original plan)
 
@@ -524,3 +528,97 @@ brewmaster --help | cat           # non-TTY: no color codes leak into pipes
 
 See `openspec/changes/archive/2026-08-11-m10-colorized-help/` for the
 full proposal, design, specs, and tasks record.
+
+---
+
+### Milestone 11 — Interactive Selection UX
+
+**Status:** `[x] done` **Branch:** `feat/interactive-select` **Version:** `v0.12.0` **Depends on:** M4, M7, M8
+
+#### Scope (as actually built)
+
+The `fzf` multi-select in `cleanup --interactive` (M4) and `upgrade`'s
+review gate (M7) never matched the UI their own frozen design
+documented: a bare `fzf --multi --ansi` with no `--bind`, no `--marker`,
+no `--pointer`, no `--height`. Both headers advertised `ctrl-a: all`
+while `ctrl-a` stayed on fzf's default `beginning-of-line`; Enter with
+nothing marked upgraded exactly one package; and `upgrade` was opt-in
+with `fzf` but opt-out (`Upgrade all? [y/N]`) without it.
+
+Built as proposed: one shared picker, `ui_select "$preselect" "$prompt"
+[extra fzf args...]` in `lib/brewmaster/core/ui.sh`, owns every `fzf`
+option and generates its `--header` from the same key table as its
+`--bind` string, so a key can only be advertised if it is bound — the
+invariant the two hand-written headers lacked. `upgrade` calls it with
+`preselect=all` (every candidate starts selected, Enter upgrades the
+batch, matching the no-`fzf` `[y/N]`), `cleanup --interactive` with
+`preselect=none` (removal stays explicit, convention 11). Preselect-all
+rides on `fzf`'s `start:select-all` bind, gated by a one-time probe that
+tests for exit **2** (option parse error) rather than any non-zero
+status — measured on `fzf 0.44.1`, exit 1 is "no match" for the probe's
+empty input and means the bind was accepted. The risk score `upgrade`
+already carried in `upgrade_meta` is now a colored trailing column of
+the candidate rows, which are built once through `ui_table_row` and
+printed by all four consumers (`--dry-run` plan, no-`fzf` table, picker,
+"Upgrading N package(s)" listing).
+
+Deviations from the proposal, all recorded in `design.md`:
+
+- **No-`fzf` fallback for `cleanup --interactive`: dropped** (maintainer,
+  2026-09-06). The hard `exit 1` is the frozen M4 contract
+  (`ARCHIVE_ROADMAP.md:370`, `test_cleanup.sh` test 24), and a single
+  `[y/N]` over a whole removal batch is a coarser confirmation than
+  per-item `fzf` selection for a destructive action.
+- **Selection lookup is a newline-framed substring test, not an
+  associative array.** Same effect (no subprocess per candidate); macOS's
+  stock bash 3.2 has no associative arrays and nothing in the tree
+  requires bash 4.
+- **`enter:accept` is bound explicitly** so the header/bind invariant
+  covers every key the header names, `enter` included; `accept` is
+  `fzf`'s default for Enter, so behavior is unchanged.
+- **Markers stay ASCII** (`--pointer='>' --marker='x'`): `✓`/`▸` parse
+  fine on 0.44.1, so this is taste, not compatibility; flip in
+  `ui_select` at no cost.
+- Task 0.1 (confirm on macOS that `ctrl-a` was not select-all before)
+  was superseded rather than run: `ui_select` binds `ctrl-a` explicitly,
+  so the old default no longer matters.
+
+`test_cli.sh`'s no-`fzf` cases used to hide `fzf` by trimming `PATH` to
+`/usr/bin:/bin`, which only holds where no `fzf` lives there (Homebrew,
+yes; Linux distros, no). They now hide it with an exported `command`
+override, the mechanism the sourced test files already used. The
+`CHANGELOG` entry lands with the version bump, as every release since
+v0.10.0 has done it.
+
+#### Files
+
+- `lib/brewmaster/core/ui.sh` — `ui_select`, `_ui_fzf_supports_start`
+- `lib/brewmaster/upgrade.sh` — review gate via `ui_select all`; rows
+  built once through `ui_table_row`, risk column under `--check-deps`;
+  selection filter without a subprocess per candidate
+- `lib/brewmaster/cleanup.sh` — `--interactive` via `ui_select none`
+- `lib/brewmaster/core/help_data.sh`, `docs/brewmaster.1`,
+  `tests/fixtures/help.txt` — review-gate paragraph describes opt-out
+- `tests/test_ui.sh` — new: 19 assertions on the assembled `fzf`
+  invocation (header/bind invariant, marker ≠ pointer, inline height,
+  preselect modes, probe cache and degradation, missing `fzf` returns 1)
+- `tests/test_{audit,profile,cleanup}.sh` — `fzf` mocks record their
+  argv; assert preselect-all for `upgrade`, none for `cleanup`
+- `tests/test_cli.sh` — no-`fzf` isolation via exported `command`
+
+#### Acceptance Criteria (actual)
+
+```
+# Every key named in the picker header is present in the --bind string, and vice versa (tests/test_ui.sh)
+brewmaster --minor             # all candidates start selected; Enter upgrades the batch
+brewmaster --minor --check-deps  # risk:N column per row in the picker and the tables
+brewmaster cleanup -i          # nothing preselected; removal stays explicit; exit 1 without fzf (unchanged)
+brewmaster --minor --dry-run   # unchanged: table, no gate, fzf never invoked
+brewmaster --minor --yes       # unchanged: no gate
+# All 9 test files pass (293 assertions); shellcheck clean on bin/brewmaster and lib/brewmaster/**/*.sh
+```
+
+See `openspec/changes/archive/2026-09-06-m11-interactive-select/` for the
+full proposal, design, specs, and tasks record.
+
+---

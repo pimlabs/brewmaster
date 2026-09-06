@@ -305,14 +305,20 @@ unset -f command
 
 # --- 25. cleanup_main --interactive with mock fzf -> selects first row (imagemagick) ---
 MOCK_BIN2="$(mktemp -d)"
+FZF_ARGS_LOG="$(mktemp)"; export FZF_ARGS_LOG
+# Mock fzf: record argv, then select the first row like the old stub.
 cat > "$MOCK_BIN2/fzf" <<'FZFEOF'
 #!/usr/bin/env bash
+printf '%s\n' "$@" > "$FZF_ARGS_LOG"
 head -n1
 FZFEOF
 chmod +x "$MOCK_BIN2/fzf"
 export PATH="$MOCK_BIN2:$PATH"
 
 cleanup_main >/dev/null
+grep -- '^--bind=' "$FZF_ARGS_LOG" | grep -q 'start:' && bad "main --interactive: opt-in, must not preselect (no start: bind)" || ok
+grep -qx -- '--with-nth=2,1,3,4' "$FZF_ARGS_LOG"         && ok || bad "main --interactive: column reorder passed through to fzf"
+rm -f "$FZF_ARGS_LOG"
 [ "$(grep -c '^imagemagick$' "$UNINSTALL_LOG" || true)" -eq 2 ] && ok || bad "main --interactive: imagemagick uninstalled again via fzf selection"
 [ "$(grep -c '^watchman$' "$UNINSTALL_LOG" || true)" -eq 0 ]    && ok || bad "main --interactive: watchman never uninstalled"
 [ "$(grep -c '^openssl$' "$UNINSTALL_LOG" || true)" -eq 0 ]     && ok || bad "main --interactive: openssl never uninstalled"

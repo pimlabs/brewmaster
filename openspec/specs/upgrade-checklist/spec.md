@@ -3,9 +3,9 @@
 ## Purpose
 
 TBD — adds a review gate before `run_upgrade` executes any `brew upgrade`
-call, letting the user confirm or trim the candidate list (via `fzf`
-multi-select when available, or a plain table plus a single `[y/N]`
-prompt otherwise), while `--yes` and `--dry-run` keep their existing
+call, letting the user confirm or trim the candidate list (via the
+shared `fzf` picker with every candidate preselected when `fzf` is
+available, or a plain table plus a single `[y/N]` prompt otherwise), while `--yes` and `--dry-run` keep their existing
 bypass behavior.
 
 ## Requirements
@@ -42,16 +42,29 @@ of auto-confirming MEDIUM-risk packages.
 
 ### Requirement: fzf multi-select review when fzf is available
 
-When `fzf` is installed, the review step SHALL present the full candidate
-list via `fzf` multi-select, allowing the user to deselect individual
-packages before confirming. Only the packages remaining selected SHALL be
-upgraded.
+When `fzf` is installed, the review step SHALL present the full
+candidate list via the shared picker with preselect mode `all`: every
+candidate starts selected and the user deselects the ones to skip. Only
+the packages remaining selected SHALL be upgraded. This matches the
+no-`fzf` fallback's whole-batch semantics, so the selection model does
+not depend on whether `fzf` happens to be installed.
 
-#### Scenario: User deselects a package in fzf
+#### Scenario: User confirms without deselecting anything
+- **WHEN** the review step runs with `fzf` installed and the user
+  confirms without changing the selection
+- **THEN** every collected candidate is upgraded
+
+#### Scenario: User deselects a package
 - **WHEN** the review step runs with `fzf` installed and the user
   deselects one candidate before confirming
 - **THEN** that package is excluded from the upgrade execution and no
   `brew upgrade` call is made for it
+
+#### Scenario: User deselects everything
+- **WHEN** the review step runs with `fzf` installed and the user
+  deselects every candidate before confirming
+- **THEN** no `brew upgrade` call is made and the command prints
+  "Nothing selected." and exits 0
 
 ### Requirement: Plain table + single y/N fallback when fzf is unavailable
 
@@ -79,3 +92,19 @@ before any review step or execution, exactly as it does today.
   candidates
 - **THEN** it prints the candidate table and exits without presenting a
   review step or executing any upgrade
+
+### Requirement: Risk score is visible in the review list
+
+When dependency checking is active, each row in the review list SHALL
+display the package's dependency risk score alongside its version bump,
+so the score is available at the moment the user decides whether to keep
+the package selected.
+
+#### Scenario: Risk score shown for a candidate
+- **WHEN** the review step runs with dependency checking active
+- **THEN** each candidate row includes its risk score
+
+#### Scenario: No risk score without dependency checking
+- **WHEN** the review step runs with dependency checking disabled
+- **THEN** candidate rows omit the risk score column rather than showing
+  an empty one

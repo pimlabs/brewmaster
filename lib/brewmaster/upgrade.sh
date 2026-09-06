@@ -91,7 +91,6 @@ run_upgrade() {
             [[ "$ans" =~ ^[Yy]$ ]] || continue
           fi
           upgrade_list+=("$name")
-          report_rows+=("$name  ${old_sv}  ->  ${new_sv}  [${kind}]")
           if $CHECK_DEPS; then
             upgrade_meta+=("${old_sv}|${new_sv}|${kind}|${score}")
           else
@@ -104,6 +103,31 @@ run_upgrade() {
       *) : ;;
     esac
   done <<<"$out"
+
+  # One row builder for every consumer of the candidate list: the
+  # --dry-run plan, the no-fzf fallback table, the fzf picker rows and
+  # the "Upgrading N package(s)" listing all print report_rows. Columns
+  # are sized to the widest value so the rows align like every other
+  # table in the CLI; the risk score (already carried in upgrade_meta,
+  # never shown before) becomes a trailing column when --check-deps is on.
+  local i name_w=0 old_w=0 new_w=0 m_old m_new m_kind m_score
+  for i in "${!upgrade_list[@]}"; do
+    IFS='|' read -r m_old m_new m_kind m_score <<<"${upgrade_meta[$i]}"
+    (( ${#upgrade_list[$i]} > name_w )) && name_w=${#upgrade_list[$i]}
+    (( ${#m_old} > old_w )) && old_w=${#m_old}
+    (( ${#m_new} > new_w )) && new_w=${#m_new}
+  done
+  for i in "${!upgrade_list[@]}"; do
+    IFS='|' read -r m_old m_new m_kind m_score <<<"${upgrade_meta[$i]}"
+    if [[ -n "$m_score" ]]; then
+      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "$old_w" "$m_old" \
+        "" "->" "$new_w" "$m_new" "" "[${m_kind}]" \
+        "" "$(ui_colorize "" "$(_depgraph_risk_color "$m_score")" "risk:${m_score}")")")
+    else
+      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "$old_w" "$m_old" \
+        "" "->" "$new_w" "$m_new" "" "[${m_kind}]")")
+    fi
+  done
 
   if (( skipped_nonsemver > 0 )); then
     echo "Note: ${skipped_nonsemver} package(s) skipped (non-semver version)." >&2
@@ -134,15 +158,18 @@ run_upgrade() {
       for i in "${!upgrade_list[@]}"; do
         fzf_display+=("${upgrade_list[$i]}"$'\t'"${report_rows[$i]}")
       done
+      # Opt-out: every candidate starts selected, so Enter with nothing
+      # deselected upgrades the whole batch — the same semantics as the
+      # no-fzf [y/N] below.
       local selected
-      selected="$(printf '%s\n' "${fzf_display[@]}" | \
-        fzf --multi --ansi \
-            --header='tab: toggle · ctrl-a: all · enter: upgrade' \
-            --prompt='Select packages > ' | \
-        cut -f1)"
+      selected="$(printf '%s\n' "${fzf_display[@]}" | ui_select all 'Upgrade > ' | cut -f1)"
+      # One newline-framed haystack and one substring test per candidate:
+      # no subprocess inside the loop, and no associative array, which
+      # macOS's stock bash 3.2 lacks.
+      local haystack=$'\n'"${selected}"$'\n'
       local -a new_list=() new_rows=() new_meta=()
       for i in "${!upgrade_list[@]}"; do
-        echo "$selected" | grep -qFx "${upgrade_list[$i]}" || continue
+        [[ "$haystack" == *$'\n'"${upgrade_list[$i]}"$'\n'* ]] || continue
         new_list+=("${upgrade_list[$i]}")
         new_rows+=("${report_rows[$i]}")
         new_meta+=("${upgrade_meta[$i]}")
