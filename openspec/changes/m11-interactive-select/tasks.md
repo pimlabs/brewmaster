@@ -70,17 +70,17 @@
 
 ## 5. Tests
 
-- [ ] 5.1 Replace the `head -1` `fzf` stubs in `tests/test_audit.sh`,
+- [x] 5.1 Replace the `head -1` `fzf` stubs in `tests/test_audit.sh`,
       `tests/test_profile.sh`, and `tests/test_cleanup.sh` with a mock
       that records its own `"$@"`, keeping their existing
       selection-filtering assertions intact
-- [ ] 5.2 Add the regression test for the original bug: every key named
+- [x] 5.2 Add the regression test for the original bug: every key named
       in the generated `--header` appears in the `--bind` string, and
       every bound key appears in the header
-- [ ] 5.3 Assert `upgrade` passes `start:select-all` when the probe
+- [x] 5.3 Assert `upgrade` passes `start:select-all` when the probe
       succeeds, and still produces a valid invocation when it fails
-- [ ] 5.4 Assert `cleanup --interactive` passes no `start:` bind
-- [ ] 5.5 Run all test files and `shellcheck bin/brewmaster` plus
+- [x] 5.4 Assert `cleanup --interactive` passes no `start:` bind
+- [x] 5.5 Run all test files and `shellcheck bin/brewmaster` plus
       `find lib/brewmaster -name '*.sh' | xargs shellcheck`
 
 ## 6. Docs

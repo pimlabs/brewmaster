@@ -347,8 +347,12 @@ CHECK_DEPS=false
 # --- 25. run_upgrade review gate (fzf available): logs only the selected package ---
 # YES_FLAG=false (the review gate is the default now, no --interactive needed)
 MOCK_FZF="$(mktemp -d)"
+FZF_ARGS_LOG="$(mktemp)"; export FZF_ARGS_LOG
+# Mock fzf: record argv (so the bind/header can be asserted), then select
+# the first candidate like the old head -n1 stub.
 cat > "$MOCK_FZF/fzf" <<'FZFEOF'
 #!/usr/bin/env bash
+printf '%s\n' "$@" > "$FZF_ARGS_LOG"
 head -n1
 FZFEOF
 chmod +x "$MOCK_FZF/fzf"
@@ -361,9 +365,11 @@ entry="$(tail -n1 "$AUDIT_LOG")"
 [ "$(echo "$entry" | jq -r '.action')" = "upgrade" ]      && ok || bad "run_upgrade review gate: appends action=upgrade"
 [ "$(echo "$entry" | jq -r '.package')" = "git" ]         && ok || bad "run_upgrade review gate: package=git (selected via fzf)"
 [ "$(wc -l < "$AUDIT_LOG" | tr -d ' ')" -eq 1 ]           && ok || bad "run_upgrade review gate: only 1 entry logged"
+grep -q -- '^--bind=start:select-all,' "$FZF_ARGS_LOG"      && ok || bad "run_upgrade review gate: opt-out (start:select-all bound)"
+grep -- '^--header=' "$FZF_ARGS_LOG" | grep -q 'ctrl-a'     && ok || bad "run_upgrade review gate: header advertises ctrl-a"
 
 export PATH="${PATH#"$MOCK_FZF:"}"
-rm -rf "$MOCK_FZF"
+rm -rf "$MOCK_FZF"; rm -f "$FZF_ARGS_LOG"
 
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))

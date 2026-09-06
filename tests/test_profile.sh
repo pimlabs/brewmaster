@@ -281,9 +281,11 @@ case "$*" in
 esac
 EOF
 chmod +x "$MOCK_BIN4/brew"
+FZF_ARGS_LOG="$(mktemp)"; export FZF_ARGS_LOG
 cat > "$MOCK_BIN4/fzf" <<'EOF'
 #!/usr/bin/env bash
-# Mock fzf: simulate selecting only the first candidate.
+# Mock fzf: record argv, then simulate selecting only the first candidate.
+printf '%s\n' "$@" > "$FZF_ARGS_LOG"
 head -n1
 EOF
 chmod +x "$MOCK_BIN4/fzf"
@@ -295,9 +297,11 @@ PACKAGES=()
 out="$(run_upgrade 2>&1)"
 echo "$out" | grep -q "upgraded git"        && ok || bad "review gate fzf: selected candidate (git) upgraded"
 echo "$out" | grep -q "upgraded jq"         && bad "review gate fzf: unselected candidate (jq) must not be upgraded" || ok
+grep -q -- '^--bind=start:select-all,' "$FZF_ARGS_LOG" && ok || bad "review gate fzf: every candidate preselected (start:select-all)"
+grep -- '^--bind=' "$FZF_ARGS_LOG" | grep -q 'ctrl-a:select-all' && ok || bad "review gate fzf: ctrl-a bound to select-all"
 
 export PATH="$OLD_PATH"
-rm -rf "$MOCK_BIN4"
+rm -rf "$MOCK_BIN4"; rm -f "$FZF_ARGS_LOG"
 
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))
