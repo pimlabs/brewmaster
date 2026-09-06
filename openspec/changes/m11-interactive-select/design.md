@@ -155,13 +155,16 @@ only — because there the gate became mandatory, so exiting would have
 made the command unusable without `fzf`. `cleanup --interactive` is an
 explicitly requested optional mode; refusing it is defensible.
 
-**Decision required from the maintainer before task 6 is implemented.**
-Implementing it means editing a frozen contract line and rewriting a
-frozen test — both forbidden by AGENTS.md without an explicit
-exemption. Task 6 is isolated so the rest of the milestone lands either
-way. If it goes ahead, ARCHIVE_ROADMAP.md:370 must be amended in the
-same commit with a note pointing at this change, so the archive stays
-truthful rather than silently contradicted.
+**Decision (maintainer, 2026-09-06): dropped.** The hard-exit stays and
+the frozen contract is untouched. Beyond the freeze itself, the
+fallback was the wrong trade for a destructive path: a single `[y/N]`
+covering the whole removal batch is a coarser confirmation than the
+per-item selection `fzf` gives, so it would lower the deliberateness
+bar exactly where AGENTS.md convention 10 wants it highest. Requiring
+`fzf` for interactive removal is the safer default. If the fallback is
+ever wanted, it needs its own proposal with an explicit freeze
+exemption, amending ARCHIVE_ROADMAP.md:370 and test 24 in the same
+commit.
 
 ## Decisions
 

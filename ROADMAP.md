@@ -592,13 +592,14 @@ brewmaster --minor --yes       # unchanged: no gate
 # All test files pass; shellcheck clean on bin/brewmaster and lib/brewmaster/**/*.sh
 ```
 
-#### Open decision
+#### Decision: no-`fzf` fallback for `cleanup --interactive` — dropped
 
-Adding a no-`fzf` fallback to `cleanup --interactive` (replacing today's
-hard `exit 1`) is **contested and not approved**. `ARCHIVE_ROADMAP.md:370`
-freezes the hard-exit as the M4 contract, and `tests/test_cleanup.sh`
-test 24 asserts it. It is isolated as task 6 of the proposal and needs
-an explicit freeze exemption before implementation.
+Replacing today's hard `exit 1` with a table plus `[y/N]` was proposed
+and dropped (maintainer, 2026-09-06). `ARCHIVE_ROADMAP.md:370` freezes
+the hard-exit as the M4 contract and `tests/test_cleanup.sh` test 24
+asserts it; more importantly, a single `[y/N]` over a whole removal
+batch is a coarser confirmation than per-item `fzf` selection for a
+destructive action. The hard-exit stays.
 
 See `openspec/changes/m11-interactive-select/` for the proposal, design,
 specs, and tasks.

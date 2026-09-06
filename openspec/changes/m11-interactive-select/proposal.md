@@ -60,12 +60,6 @@ selection UI is the one interactive surface that pass did not reach.
 - **Risk score becomes visible in the `upgrade` picker.** The score is
   already computed and carried in `upgrade_meta` but never reaches the
   row the user reads while deciding. ARCHIVE_ROADMAP's mockup shows it.
-- **`cleanup --interactive` gains a no-`fzf` fallback** (table plus a
-  single `[y/N]`), replacing today's hard `exit 1`. **This one
-  contradicts a frozen M4 contract and a frozen test — see design.md
-  "Frozen contract conflict". It needs an explicit maintainer decision
-  before implementation, and is isolated to its own task so it can be
-  dropped without affecting the rest.**
 
 ## Out of Scope
 
@@ -73,6 +67,12 @@ selection UI is the one interactive surface that pass did not reach.
   terminal handling for arrow keys and redraw is ~150 lines of fragile
   code to reimplement what `fzf` already does. `fzf` stays optional;
   the non-`fzf` path stays a table plus `[y/N]`.
+- **A no-`fzf` fallback for `cleanup --interactive`.** Proposed, then
+  dropped by maintainer decision (2026-09-06). The hard `exit 1` is the
+  frozen M4 contract (ARCHIVE_ROADMAP.md:370, `tests/test_cleanup.sh`
+  test 24), and a single `[y/N]` over a whole removal batch is a coarser
+  confirmation than per-item `fzf` selection gives for a destructive
+  action. The hard-exit stays; see design.md "Frozen contract conflict".
 - **Changing what `--dry-run` or `--yes` do.** Both keep their M7
   bypass behavior exactly.
 - **Colorizing the picker rows beyond the risk score.** `--ansi` is
@@ -109,8 +109,7 @@ selection UI is the one interactive surface that pass did not reach.
   capability probe
 - `lib/brewmaster/upgrade.sh` — review gate consumes the helper;
   risk score added to the displayed row
-- `lib/brewmaster/cleanup.sh` — `--interactive` consumes the helper;
-  no-`fzf` fallback (contested task only)
+- `lib/brewmaster/cleanup.sh` — `--interactive` consumes the helper
 - `bin/brewmaster`, `lib/brewmaster/core/help_data.sh` — help text for
   the review gate now describes opt-out selection
 - `docs/brewmaster.1`, `tests/fixtures/help*.txt` — regenerated, since

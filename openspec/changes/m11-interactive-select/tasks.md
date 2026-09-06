@@ -83,30 +83,15 @@
 - [ ] 5.5 Run all test files and `shellcheck bin/brewmaster` plus
       `find lib/brewmaster -name '*.sh' | xargs shellcheck`
 
-## 6. CONTESTED — cleanup no-fzf fallback (needs maintainer sign-off)
+## 6. Docs
 
-> Blocked on the decision in design.md "Frozen contract conflict".
-> Do not implement without an explicit exemption: this edits a frozen
-> M4 contract line and rewrites a frozen test.
-
-- [ ] 6.1 Replace the hard `exit 1` at `lib/brewmaster/cleanup.sh:324`
-      with a table plus a single `[y/N]` for the batch, mirroring
-      `run_upgrade`'s fallback
-- [ ] 6.2 Rewrite `tests/test_cleanup.sh` test 24, which currently
-      asserts `exit 1`
-- [ ] 6.3 Amend `docs/ARCHIVE_ROADMAP.md:370` with a note pointing at
-      this change, so the frozen archive is corrected rather than
-      silently contradicted
-
-## 7. Docs
-
-- [ ] 7.1 Update the review-gate paragraph in
+- [ ] 6.1 Update the review-gate paragraph in
       `lib/brewmaster/core/help_data.sh` to describe opt-out selection
       ("all candidates start selected; deselect what you don't want")
-- [ ] 7.2 Regenerate `docs/brewmaster.1` via `docs/gen-man.sh` and the
+- [ ] 6.2 Regenerate `docs/brewmaster.1` via `docs/gen-man.sh` and the
       `tests/fixtures/help*.txt` fixtures; confirm `tests/test_docs.sh`
       drift check passes
-- [ ] 7.3 Add the `CHANGELOG.md` entry under a new `[0.12.0]` heading
-- [ ] 7.4 Flip M11's status to `[x] done` in `ROADMAP.md` and record
+- [ ] 6.3 Add the `CHANGELOG.md` entry under a new `[0.12.0]` heading
+- [ ] 6.4 Flip M11's status to `[x] done` in `ROADMAP.md` and record
       what was actually built versus planned, following the
       scope-note convention M6-M10 established
