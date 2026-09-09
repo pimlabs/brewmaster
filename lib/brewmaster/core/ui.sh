@@ -190,10 +190,18 @@ ui_select() {
     header+="${header:+ · }${key}: ${label}"
   done
   # start: is an event, not a key — it never appears in the header.
+  # fzf reads stdin asynchronously and fires start before the list is
+  # loaded, so start:select-all alone races the input and preselects
+  # nothing on the runs it loses (measured on 0.44.1: 4 of 6 runs all,
+  # 2 of 6 none). --sync makes fzf read all input first; the input is
+  # already in memory, so the wait is invisible.
+  local sync=""
   if [[ "$preselect" == "all" ]] && _ui_fzf_supports_start; then
     binds="start:select-all,${binds}"
+    sync="--sync"
   fi
+  # shellcheck disable=SC2086 # ${sync:+...} is either --sync or no argument at all
   fzf --multi --ansi --height=60% --layout=reverse --border \
-      --pointer='>' --marker='x' \
+      --pointer='>' --marker='x' ${sync:+"$sync"} \
       --bind="$binds" --header="$header" --prompt="$prompt" "$@"
 }

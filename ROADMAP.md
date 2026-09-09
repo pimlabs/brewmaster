@@ -583,6 +583,15 @@ Deviations from the proposal, all recorded in `design.md`:
   was superseded rather than run: `ui_select` binds `ctrl-a` explicitly,
   so the old default no longer matters.
 
+**v0.12.1** (2026-09-09) fixed two defects found on first real use of
+0.12.0: `start:select-all` raced `fzf`'s asynchronous input read, so the
+picker sometimes opened with nothing preselected (`101/101 (0)`) and
+Enter upgraded one package — the original bug, back by another route;
+`ui_select` now passes `--sync` with that bind (measured on 0.44.1:
+`start` alone 4/6 runs, with `--sync` 9/9). And the tab-separated name
+field fed to `fzf` was rendered to 8-column tab stops, shifting each row
+by its name's length; `upgrade` now hides it with `--with-nth=2`.
+
 `test_cli.sh`'s no-`fzf` cases used to hide `fzf` by trimming `PATH` to
 `/usr/bin:/bin`, which only holds where no `fzf` lives there (Homebrew,
 yes; Linux distros, no). They now hide it with an exported `command`
