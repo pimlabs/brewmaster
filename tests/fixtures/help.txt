@@ -9,6 +9,7 @@ Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster bloat
        brewmaster log [--package=NAME] [--action=upgrade|cleanup|snapshot] [--since=Nd] [--format=table|json|csv]
        brewmaster report
+       brewmaster completion [bash|zsh|fish] [--shell=NAME]
 
 Each section below groups a set of commands with the flags that apply to them.
 
@@ -118,6 +119,20 @@ AUDIT LOG & REPORTS
     --format=table|json|csv  Output format (default: table).
 
   Audit log stored in: ~/.local/share/brewmaster/audit.log (XDG_DATA_HOME respected).
+
+SHELL COMPLETION
+  completion                 Report whether completion for your shell is installed
+                             and set up to load, with the snippet to add if not.
+  completion <bash|zsh|fish> Print that shell's completion script, for
+                             source <(brewmaster completion zsh) or a git checkout.
+                             e.g. brewmaster completion --shell=zsh
+
+  Flags (apply to completion):
+    --shell=NAME             Report for NAME (bash|zsh|fish) instead of $SHELL.
+
+  The tap formula installs completions for all three shells. "Configured" is
+  read from your rc files: brewmaster cannot see the live shell, and never
+  writes to them.
 
 GENERAL
   -v, --verbose              More detailed output.

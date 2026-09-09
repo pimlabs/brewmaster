@@ -28,6 +28,9 @@ log \fI[--package=NAME]\fR \fI[--action=upgrade|cleanup|snapshot]\fR \fI[--since
 .br
 .B brewmaster
 report
+.br
+.B brewmaster
+completion \fI[bash|zsh|fish]\fR \fI[--shell=NAME]\fR
 .SH DESCRIPTION
 .B brewmaster
 upgrades only what you decide \(em patch, minor, or major \(em nothing more.
@@ -232,6 +235,23 @@ Only entries within this time window (default unit: days).
 Output format (default: table).
 .PP
 Audit log stored in: ~/.local/share/brewmaster/audit.log (XDG_DATA_HOME respected).
+.SS SHELL COMPLETION
+.TP
+.B completion
+Report whether completion for your shell is installed
+and set up to load, with the snippet to add if not.
+completion \fIbash|zsh|fish\fR Print that shell's completion script, for
+source <(brewmaster completion zsh) or a git checkout.
+e.g. brewmaster completion --shell=zsh
+.PP
+.B Flags (apply to completion):
+.TP
+.B --shell=NAME
+Report for NAME (bash|zsh|fish) instead of $SHELL.
+.PP
+The tap formula installs completions for all three shells. "Configured" is
+read from your rc files: brewmaster cannot see the live shell, and never
+writes to them.
 .SS GENERAL
 .TP
 .B -v, --verbose
@@ -268,3 +288,5 @@ Audit log stored in. (XDG_DATA_HOME respected).
 .B brewmaster cleanup --interactive
 .TP
 .B brewmaster log --action=upgrade --since=7d
+.TP
+.B brewmaster completion --shell=zsh

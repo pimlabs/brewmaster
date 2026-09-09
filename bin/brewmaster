@@ -52,6 +52,8 @@ AUDIT_ACTION=""
 AUDIT_SINCE=""
 AUDIT_FORMAT="table"
 HELP_TARGET=""
+COMPLETION_SHELL=""   # `completion <shell>`: print that shell's script
+COMPLETION_TARGET=""  # --shell=NAME: report for NAME instead of $SHELL
 
 # _help_style_vars — set B/R/U/UR to tput sequences, or "" when styling
 # should be suppressed (non-TTY, NO_COLOR set, or no tput available).
@@ -176,7 +178,7 @@ _help_render_line() {
 # that drives usage(), styled through the same helpers. A group that
 # covers several command tokens (e.g. SNAPSHOT & ROLLBACK) is printed in
 # full regardless of which of its tokens was requested.
-# Args:   $1 command name (upgrade|snapshot|deps|profile|cleanup|why|bloat|log|report)
+# Args:   $1 command name (upgrade|snapshot|deps|profile|cleanup|why|bloat|log|report|completion)
 # Stdout: the matching group's block, styled; nothing on an unknown command
 # Return: 0 on a known command, 1 (with a stderr message) on an unknown one
 help_command() {
@@ -188,6 +190,7 @@ help_command() {
     profile)          group="PROFILES" ;;
     cleanup|why|bloat) group="CLEANUP & INTENT" ;;
     log|report)       group="AUDIT LOG & REPORTS" ;;
+    completion)       group="SHELL COMPLETION" ;;
     *)
       echo "Unknown command: $target" >&2
       return 1
@@ -249,6 +252,10 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
                 PROFILE_SUBCMD="$1"; shift
               fi ;;
     cleanup|why|bloat|log|report) COMMAND="$1"; shift ;;
+    completion) COMMAND="$1"; shift
+              if [[ $# -gt 0 && "$1" != -* ]]; then
+                COMPLETION_SHELL="$1"; shift
+              fi ;;
     help)     COMMAND="$1"; shift
               if [[ $# -gt 0 && "$1" != -* ]]; then
                 HELP_TARGET="$1"; shift
@@ -281,6 +288,8 @@ while [[ $# -gt 0 ]]; do
     --profile=*)         PROFILE_NAME="${1#*=}" ;;
     --profile)           shift; PROFILE_NAME="${1-}" ;;
     --interactive|-i)    INTERACTIVE=true ;;
+    --shell=*)           COMPLETION_TARGET="${1#*=}" ;;
+    --shell)             shift; COMPLETION_TARGET="${1-}" ;;
     --package=*)         AUDIT_PACKAGE="${1#*=}" ;;
     --package)           shift; AUDIT_PACKAGE="${1-}" ;;
     --action=*)          AUDIT_ACTION="${1#*=}" ;;
@@ -316,6 +325,7 @@ source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"
 source "$LIB_DIR/profile.sh"
 source "$LIB_DIR/cleanup.sh"
+source "$LIB_DIR/completion.sh"
 
 if [[ -n "$PROFILE_NAME" ]]; then
   profile_load "$PROFILE_NAME" || exit 1
@@ -369,6 +379,7 @@ case "$COMMAND" in
   bloat) cleanup_bloat ;;
   log) audit_query ;;
   report) audit_report ;;
+  completion) completion_main ;;
   help)
     if [[ -n "$HELP_TARGET" ]]; then
       help_command "$HELP_TARGET" || exit 1

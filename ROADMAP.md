@@ -55,6 +55,7 @@ Core logic lives in `bin/brewmaster`, modularized across `lib/brewmaster/core/`.
 | M9 — Manual & Help              | v0.10.0  | `[x] done`   |
 | M10 — Colorized Help            | v0.11.0  | `[x] done`   |
 | M11 — Interactive Selection UX  | v0.12.0  | `[x] done`   |
+| M12 — Completion Guidance       | v0.13.0  | `[x] done`   |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > M6–M9 shipped together in v0.10.0 (2026-08-11). The `(M6)`/`(M7)` labels on
@@ -630,5 +631,68 @@ brewmaster --minor --yes       # unchanged: no gate
 
 See `openspec/changes/archive/2026-09-06-m11-interactive-select/` for the
 full proposal, design, specs, and tasks record.
+
+---
+
+### Milestone 12 — Completion Guidance
+
+**Status:** `[x] done` **Branch:** `feat/completion-guidance` **Version:** `v0.13.0` **Depends on:** M7, M9
+
+#### Scope (as actually built)
+
+Shell completions have shipped since v0.8.0 and the tap formula installs
+them for bash, zsh and fish, but nothing tells a user whether their shell
+is set up to load them; the maintainer's own first instinct was "add an
+install command". Writing rc files is out (PHILOSOPHY question 4; every
+well-behaved CLI in this space prints and explains instead), so M12 adds
+the descriptive equivalent:
+
+- `brewmaster completion` — status for `$SHELL` (or `--shell=NAME`): the
+  script's resolved path or "not found", whether the shell's rc files
+  reference Homebrew's completion setup (a documented heuristic:
+  brewmaster runs under bash and cannot see zsh's live `FPATH`), and the
+  snippet to add when they do not. Read-only. Exit 0 when the script is
+  found, 1 otherwise; the heuristic never changes the exit code.
+- `brewmaster completion <bash|zsh|fish>` — prints that shell's script,
+  for `source <(...)` and git-checkout installs.
+- Lookup covers both layouts: the checkout's `completions/` first, then
+  the formula's install targets under `brew --prefix`.
+
+Built as proposed, one correction to the design's own words: the
+checkout's `completions/` sits two levels above `LIB_DIR`
+(`lib/brewmaster/../../completions`), not one; a Homebrew keg has no
+`completions/` there, so the formula-target lookup is what fires for
+brew installs, as intended. The "configured" line names the exact rc
+files scanned (honoring `ZDOTDIR`) and carries a muted note that it is
+read from those files, so nobody mistakes it for a live-shell check.
+`brew shellenv` counts as configured for zsh because Homebrew's zsh
+output prepends `share/zsh/site-functions` to `fpath`. `tests/
+test_completion.sh` (30 assertions) includes a before/after file
+inventory of `$HOME` and the prefix to prove a status run writes
+nothing.
+
+#### Files
+
+- `lib/brewmaster/completion.sh` — new
+- `bin/brewmaster` — `completion` subcommand, `--shell=NAME`, dispatch
+- `lib/brewmaster/core/help_data.sh`, `docs/brewmaster.1`,
+  `tests/fixtures/help*.txt` — SHELL COMPLETION section
+- `completions/brewmaster.{bash,zsh,fish}` — complete the new subcommand
+- `tests/test_completion.sh` — new
+- `README.md` — Shell Completions leads with the subcommand
+
+#### Acceptance Criteria
+
+```
+brewmaster completion                  # Shell/Script/Configured report, snippet when needed; exit 0 if installed
+brewmaster completion --shell=bash     # same, for another shell
+brewmaster completion zsh | head -1    # "#compdef brewmaster"
+SHELL=/bin/tcsh brewmaster completion  # error naming bash, zsh, fish; exit 1
+# Nothing under $HOME or brew --prefix is written by any of the above (asserted by test 12)
+# All 10 test files pass (330 assertions); shellcheck clean on bin/brewmaster and lib/brewmaster/**/*.sh
+```
+
+See `openspec/changes/archive/2026-09-09-m12-completion-guidance/` for
+the proposal, design, specs, and tasks record.
 
 ---

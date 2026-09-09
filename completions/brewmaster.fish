@@ -14,7 +14,7 @@ function __fish_brewmaster_profiles
 end
 
 function __fish_brewmaster_no_subcommand
-    not __fish_seen_subcommand_from upgrade snapshot deps profile cleanup why bloat log report
+    not __fish_seen_subcommand_from upgrade snapshot deps profile cleanup why bloat log report completion
 end
 
 # --- Top-level subcommands (default command is "upgrade"; bare package names are also valid) ---
@@ -27,6 +27,7 @@ complete -c brewmaster -n __fish_brewmaster_no_subcommand -f -a why -d 'Explain 
 complete -c brewmaster -n __fish_brewmaster_no_subcommand -f -a bloat -d 'Installed package summary'
 complete -c brewmaster -n __fish_brewmaster_no_subcommand -f -a log -d 'Show audit log entries'
 complete -c brewmaster -n __fish_brewmaster_no_subcommand -f -a report -d 'Machine health summary'
+complete -c brewmaster -n __fish_brewmaster_no_subcommand -f -a completion -d 'Completion status, or print a completion script'
 complete -c brewmaster -n __fish_brewmaster_no_subcommand -f -a '(__fish_brewmaster_packages)'
 
 # --- General flags (every command) ---
@@ -91,3 +92,7 @@ complete -c brewmaster -n '__fish_seen_subcommand_from log' -f -l package -a '(_
 complete -c brewmaster -n '__fish_seen_subcommand_from log' -f -l action -a 'upgrade cleanup snapshot' -d 'Filter by action'
 complete -c brewmaster -n '__fish_seen_subcommand_from log' -f -l since -d 'Time window, e.g. 7d, 24h, 2w'
 complete -c brewmaster -n '__fish_seen_subcommand_from log' -f -l format -a 'table json csv' -d 'Output format'
+
+# --- completion ---
+complete -c brewmaster -n '__fish_seen_subcommand_from completion; and not __fish_seen_subcommand_from bash zsh fish' -f -a 'bash zsh fish' -d "Print this shell's completion script"
+complete -c brewmaster -n '__fish_seen_subcommand_from completion' -f -l shell -a 'bash zsh fish' -d 'Report for this shell instead of $SHELL'

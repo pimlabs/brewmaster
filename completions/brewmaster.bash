@@ -19,7 +19,7 @@ _brewmaster() {
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-  local commands="upgrade snapshot deps profile cleanup why bloat log report"
+  local commands="upgrade snapshot deps profile cleanup why bloat log report completion"
   local general="-v --verbose -V --version -h --help"
   local upgrade_flags="--patch --minor --major --level= --or-lower --allow-date -n --dry-run --formulae --casks --profile= -i --interactive --check-deps --risk-threshold= -y --yes"
   local snapshot_flags="--label= -n --dry-run --force"
@@ -42,6 +42,7 @@ _brewmaster() {
     --package) COMPREPLY=( $(compgen -W "$(_brewmaster_packages)" -- "$cur") ); return ;;
     --action)  COMPREPLY=( $(compgen -W "upgrade cleanup snapshot" -- "$cur") ); return ;;
     --format)  COMPREPLY=( $(compgen -W "table json csv" -- "$cur") ); return ;;
+    --shell)   COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") ); return ;;
     --risk-threshold|--label|--since) return ;;
   esac
 
@@ -52,6 +53,7 @@ _brewmaster() {
     --action=*)  COMPREPLY=( $(compgen -W "upgrade cleanup snapshot" -P "--action=" -- "${cur#*=}") ); return ;;
     --format=*)  COMPREPLY=( $(compgen -W "table json csv" -P "--format=" -- "${cur#*=}") ); return ;;
     --package=*) COMPREPLY=( $(compgen -W "$(_brewmaster_packages)" -P "--package=" -- "${cur#*=}") ); return ;;
+    --shell=*)   COMPREPLY=( $(compgen -W "bash zsh fish" -P "--shell=" -- "${cur#*=}") ); return ;;
   esac
 
   if [[ -z "$cmd" ]]; then
@@ -111,6 +113,13 @@ _brewmaster() {
       ;;
     log)
       COMPREPLY=( $(compgen -W "$general $log_flags" -- "$cur") )
+      ;;
+    completion)
+      if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "$general --shell=" -- "$cur") )
+      elif [[ -z "$sub" ]]; then
+        COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+      fi
       ;;
   esac
 }
