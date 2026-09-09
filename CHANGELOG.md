@@ -7,6 +7,41 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.14.0] — 2026-09-09
+
+### Added
+
+- `lib/brewmaster/core/cli_spec.sh` — the CLI surface (every command,
+  sub-subcommand, positional and flag, with descriptions, value kinds
+  and exclusion groups) declared once as machine-readable records
+- `docs/gen-completions.sh <bash|zsh|fish>` — generates the completion
+  scripts from that spec, the way `gen-man.sh` generates the man page.
+  The three files under `completions/` are now generated artifacts with
+  a "do not edit" header; the recipe for adding a command or flag is in
+  CONTRIBUTING.md
+- `tests/test_completions.sh` — fails when a committed completion script
+  drifts from the generator, when `bin/brewmaster` parses a flag or
+  subcommand the spec lacks (or the reverse), or when a spec entry has
+  no help entry
+- `brewmaster help <TAB>` completes command names in all three shells;
+  `--help` lists `brewmaster help [command]` in its usage block
+
+### Fixed
+
+- The bash completion script had shipped since 0.13.0 without the
+  `completion` subcommand; regenerating from the spec restores it
+- After a leading flag (`brewmaster -n <TAB>`) completions offer
+  packages, not command names: `bin/brewmaster` reads a command only
+  from its first argument, so the old suggestion produced a command that
+  ran as an `upgrade` of packages named `snapshot`, `list`, ...
+- zsh: every flag carries its description, the global `-v/-V/-h` flags
+  are offered in every context, `upgrade`'s flags are offered at top
+  level (it is the default command), and an unknown flag no longer
+  swallows the sub-subcommand slot
+- fish: positionals carry descriptions, value-taking flags require their
+  value (`--label <TAB>` no longer offers files), and no completion
+  falls back to file names
+
 ## [0.13.1] — 2026-09-09
 
 ### Added
