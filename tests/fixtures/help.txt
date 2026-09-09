@@ -1,4 +1,4 @@
-brewmaster 0.12.2
+brewmaster 0.13.0
 
 Usage: brewmaster [upgrade] [packages...] [options]
        brewmaster snapshot <save|list|diff|restore|delete> [ref] [options]

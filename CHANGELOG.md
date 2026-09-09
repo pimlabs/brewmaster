@@ -7,6 +7,25 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.13.0] — 2026-09-09
+
+### Added
+
+- `brewmaster completion` — a read-only report for your shell (`$SHELL`,
+  or `--shell=NAME`): where the completion script is installed (or that
+  it is not), whether your rc files reference Homebrew's completion
+  setup, and the exact snippet to add when they do not. Exit 0 when the
+  script is found, 1 otherwise. It reads rc files and never writes to
+  them; "Configured" is labeled as read from those files, since
+  brewmaster cannot see the live shell
+- `brewmaster completion <bash|zsh|fish>` — prints that shell's
+  completion script, for `source <(brewmaster completion zsh)` or a git
+  checkout. Lookup tries the checkout's `completions/` first, then the tap
+  formula's install targets under `brew --prefix`
+- SHELL COMPLETION section in `--help`, `help completion`, and the man
+  page; the completion scripts complete the new subcommand and
+  `--shell=`; README's Shell Completions section leads with it
+
 ## [0.12.2] — 2026-09-09
 
 ### Changed
