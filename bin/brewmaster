@@ -2,7 +2,7 @@
 [ -z "${BASH_VERSION:-}" ] && exec bash "$0" "$@"
 set -euo pipefail
 
-BREWMASTER_VERSION="0.14.0"
+BREWMASTER_VERSION="0.15.0"
 BUILD_DATE="2026-09-09"
 
 # --- Locate and source library modules (symlink-safe for Homebrew layout) ---

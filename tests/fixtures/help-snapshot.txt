@@ -1,4 +1,4 @@
-brewmaster 0.14.0
+brewmaster 0.15.0
 
 SNAPSHOT & ROLLBACK
   snapshot save              Save current Homebrew state to a snapshot.
