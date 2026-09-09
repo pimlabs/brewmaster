@@ -2,8 +2,8 @@
 #
 # Zsh completion for brewmaster.
 #
-# Manual install (until the Homebrew formula installs this automatically):
-#   cp completions/brewmaster.zsh "$(brew --prefix)/share/zsh/site-functions/_brewmaster"
+# Installed by the Homebrew formula (zsh_completion.install). From a git
+# checkout: cp completions/brewmaster.zsh "$(brew --prefix)/share/zsh/site-functions/_brewmaster"
 # then start a new shell (or run `compinit`).
 
 _brewmaster_packages() {
