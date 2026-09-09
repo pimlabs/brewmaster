@@ -112,6 +112,14 @@ bad() { fail=$((fail+1)); echo "FAIL: $1" >&2; }
 
 ts_ago() { date -u -v-"$1" +%Y-%m-%dT%H:%M:%SZ; }
 
+# Some assertions need BSD date's "-v-Nd" offset syntax (macOS's `date`);
+# GNU date (this container, and other Linux dev boxes) rejects it. Gate
+# those assertions on the capability itself, not on `uname`, so they still
+# run unchanged wherever BSD date is present.
+HAS_BSD_DATE=true
+date -u -v-1d +%s >/dev/null 2>&1 || HAS_BSD_DATE=false
+$HAS_BSD_DATE || echo "skip: 11 assertions need BSD date (macOS); not run here" >&2
+
 # --- 1. audit_query: missing log file ---
 SAVED_AUDIT_LOG="$AUDIT_LOG"
 NO_LOG="$(mktemp -u)"
@@ -149,15 +157,17 @@ entry="$(tail -n1 "$AUDIT_LOG")"
 [ "$(echo "$entry" | jq -r '.package')" = "git" ]                                   && ok || bad "append: extra field package merged"
 [ "$(echo "$entry" | jq -r '.bump')" = "minor" ]                                    && ok || bad "append: extra field bump merged"
 
-# --- 5. _audit_since_epoch: valid specs ---
-e7d="$(_audit_since_epoch 7d)"   && ok || bad "_audit_since_epoch 7d should succeed"
-e2w="$(_audit_since_epoch 2w)"   && ok || bad "_audit_since_epoch 2w should succeed"
-e6h="$(_audit_since_epoch 6h)"   && ok || bad "_audit_since_epoch 6h should succeed"
-e30="$(_audit_since_epoch 30)"   && ok || bad "_audit_since_epoch bare 30 (default days) should succeed"
-{ [ "$e7d" -lt "$NOW" ] && [ "$e7d" -gt $((NOW - 8*DAY)) ]; }    && ok || bad "_audit_since_epoch 7d: epoch ~7 days ago"
-{ [ "$e2w" -lt "$NOW" ] && [ "$e2w" -gt $((NOW - 15*DAY)) ]; }   && ok || bad "_audit_since_epoch 2w: epoch ~2 weeks ago"
-{ [ "$e6h" -lt "$NOW" ] && [ "$e6h" -gt $((NOW - 7*3600)) ]; }   && ok || bad "_audit_since_epoch 6h: epoch ~6 hours ago"
-{ [ "$e30" -lt "$NOW" ] && [ "$e30" -gt $((NOW - 31*DAY)) ]; }   && ok || bad "_audit_since_epoch 30: bare number defaults to days"
+# --- 5. _audit_since_epoch: valid specs (needs BSD date -v) ---
+if $HAS_BSD_DATE; then
+  e7d="$(_audit_since_epoch 7d)"   && ok || bad "_audit_since_epoch 7d should succeed"
+  e2w="$(_audit_since_epoch 2w)"   && ok || bad "_audit_since_epoch 2w should succeed"
+  e6h="$(_audit_since_epoch 6h)"   && ok || bad "_audit_since_epoch 6h should succeed"
+  e30="$(_audit_since_epoch 30)"   && ok || bad "_audit_since_epoch bare 30 (default days) should succeed"
+  { [ "$e7d" -lt "$NOW" ] && [ "$e7d" -gt $((NOW - 8*DAY)) ]; }    && ok || bad "_audit_since_epoch 7d: epoch ~7 days ago"
+  { [ "$e2w" -lt "$NOW" ] && [ "$e2w" -gt $((NOW - 15*DAY)) ]; }   && ok || bad "_audit_since_epoch 2w: epoch ~2 weeks ago"
+  { [ "$e6h" -lt "$NOW" ] && [ "$e6h" -gt $((NOW - 7*3600)) ]; }   && ok || bad "_audit_since_epoch 6h: epoch ~6 hours ago"
+  { [ "$e30" -lt "$NOW" ] && [ "$e30" -gt $((NOW - 31*DAY)) ]; }   && ok || bad "_audit_since_epoch 30: bare number defaults to days"
+fi
 
 # --- 6. _audit_since_epoch: invalid spec fails with stderr message ---
 err="$(_audit_since_epoch "bogus" 2>&1 >/dev/null)"; ret=$?
@@ -209,7 +219,9 @@ AUDIT_ACTION=""
 # --- 12. audit_query --since=1d: only 'now' entries, no cap ---
 AUDIT_SINCE="1d"
 out="$(audit_query)"
-[ "$(echo "$out" | wc -l | tr -d ' ')" -eq 6 ]       && ok || bad "query --since=1d: header(2)+4 rows (now-only entries)"
+if $HAS_BSD_DATE; then
+  [ "$(echo "$out" | wc -l | tr -d ' ')" -eq 6 ]     && ok || bad "query --since=1d: header(2)+4 rows (now-only entries)"
+fi
 echo "$out" | grep -qE '\bnode\b' && bad "query --since=1d: should exclude node (5d old)" || ok
 AUDIT_SINCE=""
 
@@ -273,8 +285,10 @@ jq -n '{label:"new", brew_version:"4.0", package_count:1}' > "$SNAP_DIR/20260601
 touch -t 202606010000 "$SNAP_DIR/20260601-000000-new.txt"
 
 out="$(audit_report)"
-echo "$out" | grep -qE 'Upgrades \(30d\): *3 *\(patch: 2 *minor: 1 *major: 0\)'                && ok || bad "report: upgrades(30d)=3, patch=2 minor=1 major=0"
-echo "$out" | grep -qE 'Cleanups \(90d\): *2 *packages removed'                                && ok || bad "report: cleanups(90d)=2"
+if $HAS_BSD_DATE; then
+  echo "$out" | grep -qE 'Upgrades \(30d\): *3 *\(patch: 2 *minor: 1 *major: 0\)'              && ok || bad "report: upgrades(30d)=3, patch=2 minor=1 major=0"
+  echo "$out" | grep -qE 'Cleanups \(90d\): *2 *packages removed'                              && ok || bad "report: cleanups(90d)=2"
+fi
 echo "$out" | grep -qE 'Snapshots: *2 *\(oldest: 2025-04-10, latest: 2026-06-01\)'             && ok || bad "report: snapshots=2, oldest/latest dates"
 echo "$out" | grep -qE 'Orphans now: *1'                                                       && ok || bad "report: orphans now=1"
 echo "$out" | grep -qE 'Avg risk score: *4\.0 *\(last 10 upgrades\)'                           && ok || bad "report: avg risk = 4.0"

@@ -23,24 +23,18 @@ function __fish_brewmaster_no_subcommand
     not __fish_seen_subcommand_from upgrade snapshot deps profile cleanup why bloat log report completion help
 end
 
-# bin/brewmaster reads a command only from its first argument: after a
-# leading flag the default command runs, so command names are not offered.
-function __fish_brewmaster_command_slot
-    __fish_brewmaster_no_subcommand; and not string match -q -- '-*' (commandline -opc)[2]
-end
-
 # --- Top-level subcommands (default command is "upgrade"; bare package names are also valid) ---
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'upgrade' -d 'Selective upgrade by semver bump level'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'snapshot' -d 'Save, list, diff, restore, or delete snapshots'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'deps' -d 'Show dependency risk'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'profile' -d 'Manage named upgrade profiles'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'cleanup' -d 'Report orphan, stale, and pinned-old formulae'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'why' -d 'Explain why a formula is installed'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'bloat' -d 'Installed package summary and cleanup candidates'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'log' -d 'Show audit log entries'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'report' -d 'Machine health summary'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'completion' -d 'Completion status for your shell, or print a completion script'
-complete -c brewmaster -n '__fish_brewmaster_command_slot' -f -a 'help' -d 'Show help for a command'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'upgrade' -d 'Selective upgrade by semver bump level'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'snapshot' -d 'Save, list, diff, restore, or delete snapshots'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'deps' -d 'Show dependency risk'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'profile' -d 'Manage named upgrade profiles'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'cleanup' -d 'Report orphan, stale, and pinned-old formulae'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'why' -d 'Explain why a formula is installed'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'bloat' -d 'Installed package summary and cleanup candidates'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'log' -d 'Show audit log entries'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'report' -d 'Machine health summary'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'completion' -d 'Completion status for your shell, or print a completion script'
+complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a 'help' -d 'Show help for a command'
 complete -c brewmaster -n '__fish_brewmaster_no_subcommand' -f -a '(__fish_brewmaster_packages)' -d 'package'
 
 # --- General flags (every command) ---

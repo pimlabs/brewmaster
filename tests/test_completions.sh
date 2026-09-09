@@ -79,5 +79,52 @@ for sh in bash zsh fish; do
   head -5 "$ROOT/completions/brewmaster.$sh" | grep -q 'gen-completions.sh' && ok || bad "brewmaster.$sh: header names the generator"
 done
 
+# --- 9. behaviour (bash): what _brewmaster offers for a command line ---
+#        COMP_WORDS harness: the words readline hands over (the last one is
+#        the word being completed; a stock COMP_WORDBREAKS splits "--flag=va"
+#        into "--flag" "=" "va"), COMPREPLY back as one line. brew and the
+#        profiles file are mocked in a temp dir that is removed afterwards.
+tmp="$(mktemp -d)"
+cat > "$tmp/brew" <<'EOF'
+#!/usr/bin/env bash
+[ "${1:-}" = list ] && printf '%s\n' pkg-a pkg-b
+exit 0
+EOF
+chmod +x "$tmp/brew"
+mkdir -p "$tmp/cfg/brewmaster"
+printf '[profiles.work]\n[profiles.home]\n' > "$tmp/cfg/brewmaster/profiles.toml"
+# complete_bash <word>... — COMPREPLY for that command line, space-joined
+complete_bash() {
+  ( PATH="$tmp:$PATH" XDG_CONFIG_HOME="$tmp/cfg"
+    # shellcheck source=../completions/brewmaster.bash
+    source "$ROOT/completions/brewmaster.bash"
+    COMP_WORDS=("$@"); COMP_CWORD=$(( $# - 1 )); COMPREPLY=()
+    _brewmaster
+    printf '%s\n' "${COMPREPLY[*]-}" )
+}
+# has <list> <word> — word is one of the space-separated list
+has() { case " $1 " in *" $2 "*) return 0 ;; *) return 1 ;; esac; }
+
+r="$(complete_bash brewmaster -n "")"
+has "$r" snapshot && ok || bad "bash: 'brewmaster -n <TAB>' should offer commands (got: $r)"
+has "$r" pkg-a    && ok || bad "bash: 'brewmaster -n <TAB>' should still offer packages (got: $r)"
+r="$(complete_bash brewmaster -n snapshot "")"
+has "$r" save && ok || bad "bash: a command after a leading flag is the command (got: $r)"
+r="$(complete_bash brewmaster --level patch "")"
+has "$r" snapshot && ok || bad "bash: the value of '--level patch' is not a command; commands still offered (got: $r)"
+r="$(complete_bash brewmaster --level patch snapshot "")"
+has "$r" list && ok || bad "bash: command after '--level patch' is the command (got: $r)"
+r="$(complete_bash brewmaster --level = pa)"
+[ "$r" = "patch" ] && ok || bad "bash: '--level=pa' split at '=' completes the bare value (got: $r)"
+r="$(complete_bash brewmaster --level =)"
+[ "$r" = "patch minor major" ] && ok || bad "bash: '--level=' split at '=' offers every value (got: $r)"
+r="$(complete_bash brewmaster --profile =)"
+[ "$r" = "work home" ] && ok || bad "bash: '--profile=' split at '=' runs the dynamic completer (got: $r)"
+r="$(complete_bash brewmaster snapshot save --label =)"
+[ -z "$r" ] && ok || bad "bash: '--label=' is a free value, nothing offered (got: $r)"
+r="$(complete_bash brewmaster --level=pa)"
+[ "$r" = "--level=patch" ] && ok || bad "bash: unsplit '--level=pa' still completes with its prefix (got: $r)"
+rm -rf "$tmp"
+
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))

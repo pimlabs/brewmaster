@@ -59,6 +59,7 @@ question in the same spirit. If it doesn't, it's out of scope.
 | M11 — Interactive Selection UX  | v0.12.0  | `[x] done`   |
 | M12 — Completion Guidance       | v0.13.0  | `[x] done`   |
 | M13 — CLI Spec & Completions    | v0.14.0  | `[x] done`   |
+| M14 — CLI Hardening             | v0.15.0  | `[x] done`   |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > M6–M9 shipped together in v0.10.0 (2026-08-11). The `(M6)`/`(M7)` labels on

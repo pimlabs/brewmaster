@@ -35,6 +35,20 @@ run_no_fzf() {
 }
 rows() { grep -c '  - ' || true; }             # count candidate rows
 
+# run_under_pty CMD...
+# Runs CMD under a real pty via script(1) so TTY-only behavior (e.g. color)
+# is exercised, printing the session output to stdout. BSD script (macOS)
+# and util-linux script (most Linux distros) take the command differently
+# — `script -q /dev/null cmd args...` vs. `script -qc "cmd args" /dev/null`
+# — so detect the variant and use the matching syntax.
+run_under_pty() {
+  if script --version 2>&1 | grep -qi 'util-linux'; then
+    script -qc "$(printf '%q ' "$@")" /dev/null
+  else
+    script -q /dev/null "$@"
+  fi
+}
+
 pass=0; fail=0
 ok()  { pass=$((pass+1)); }
 bad() { fail=$((fail+1)); echo "FAIL: $1" >&2; }
@@ -156,7 +170,7 @@ echo "$out" | grep -qE '^brewmaster [0-9]+\.[0-9]+\.[0-9]+ \(built [0-9]{4}-[0-9
 if command -v script >/dev/null 2>&1; then
   hdr_seq="$(tput setaf 6)"
   cmd_seq="$(tput setaf 4)"
-  tty_out="$(script -q /dev/null "$BM" --help 2>&1 || true)"
+  tty_out="$(run_under_pty "$BM" --help 2>&1 || true)"
   echo "$tty_out" | grep -qF "$hdr_seq" && ok || bad "help TTY: section header has COLOR_HEADER"
   echo "$tty_out" | grep -qF "$cmd_seq" && ok || bad "help TTY: command/flag name has COLOR_COMMAND"
 else

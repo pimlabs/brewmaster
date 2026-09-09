@@ -154,5 +154,7 @@ GENERAL
 
   -h/--help prints this full reference; use `brewmaster help <command>` for
   a shorter, per-command reference instead.
+  Flags may come before the command: `brewmaster -n snapshot list` is
+  `brewmaster snapshot list -n`.
 EOF
 }

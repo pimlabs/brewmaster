@@ -24,6 +24,7 @@ _brewmaster() {
 
   local commands="upgrade snapshot deps profile cleanup why bloat log report completion help"
   local general="-v --verbose -V --version -h --help"
+  local value_flags="--level --profile --risk-threshold --label --package --action --since --format --shell"
   local upgrade_flags="--patch --minor --major --level= --or-lower --allow-date -n --dry-run --formulae --casks --profile= -i --interactive --check-deps --risk-threshold= -y --yes"
   local snapshot_subflags="--label= -n --dry-run --force"
   local deps_subflags=""
@@ -36,17 +37,37 @@ _brewmaster() {
   local completion_flags="--shell="
   local help_flags=""
 
-  # First two non-flag words after "brewmaster" = command and sub-subcommand.
-  # bin/brewmaster recognises a command only as its first argument, so a
-  # leading flag means the default command runs and no command is looked for.
+  # Command = the first non-flag word that is a known command name, wherever
+  # it sits (bin/brewmaster reads it the same way, so "-n snapshot" is
+  # "snapshot -n"); sub-subcommand = the next non-flag word after it. The
+  # word after a space-form value flag ("--level patch") is that flag's
+  # value, never a command. When bash has split "--flag=value" at the "="
+  # (COMP_WORDBREAKS) the "=" and the value are skipped together.
   cmd=""; sub=""
-  if [[ "${COMP_WORDS[1]}" != -* ]]; then
-    for ((i = 1; i < COMP_CWORD; i++)); do
-      w="${COMP_WORDS[i]}"
-      [[ "$w" == -* ]] && continue
-      if [[ -z "$cmd" ]]; then cmd="$w"
-      elif [[ -z "$sub" ]]; then sub="$w"; fi
-    done
+  for ((i = 1; i < COMP_CWORD; i++)); do
+    w="${COMP_WORDS[i]}"
+    if [[ "$w" == -* ]]; then
+      case " $value_flags " in
+        *" $w "*)
+          i=$((i+1))
+          [[ "${COMP_WORDS[i]:-}" == "=" ]] && i=$((i+1)) ;;
+      esac
+      continue
+    fi
+    if [[ -z "$cmd" ]]; then
+      case " $commands " in *" $w "*) cmd="$w" ;; esac
+    elif [[ -z "$sub" ]]; then sub="$w"; fi
+  done
+
+  # bash splits "--flag=value" at the "=" (COMP_WORDBREAKS): "--flag=<TAB>"
+  # arrives as cur="=" after prev="--flag", and "--flag=va<TAB>" as cur="va"
+  # after prev="=". Fold both back into the "--flag value" case below and
+  # complete the bare value — readline keeps the "--flag=" already typed,
+  # so COMPREPLY must not repeat it.
+  if [[ "$cur" == "=" ]]; then
+    case " $value_flags " in *" $prev "*) cur="" ;; esac
+  elif [[ "$prev" == "=" && COMP_CWORD -ge 2 ]]; then
+    prev="${COMP_WORDS[COMP_CWORD-2]}"
   fi
 
   # "--flag value" (space-separated) completion.
@@ -60,7 +81,8 @@ _brewmaster() {
     --risk-threshold|--label|--since) return ;;
   esac
 
-  # "--flag=value" (no-space) completion.
+  # "--flag=value" (no-space) completion, for shells that took "=" out of
+  # COMP_WORDBREAKS: the whole word is $cur, so the prefix is re-added.
   case "$cur" in
     --level=*) COMPREPLY=( $(compgen -W "patch minor major" -P "--level=" -- "${cur#*=}") ); return ;;
     --profile=*) COMPREPLY=( $(compgen -W "$(_brewmaster_profiles)" -P "--profile=" -- "${cur#*=}") ); return ;;
@@ -73,10 +95,6 @@ _brewmaster() {
   if [[ -z "$cmd" ]]; then
     if [[ "$cur" == -* ]]; then
       COMPREPLY=( $(compgen -W "$general $upgrade_flags" -- "$cur") )
-    elif [[ "${COMP_WORDS[1]}" == -* ]]; then
-      # A leading flag: bin/brewmaster only reads a command from $1, so
-      # the default command runs and only its positional applies.
-      COMPREPLY=( $(compgen -W "$(_brewmaster_packages)" -- "$cur") )
     else
       COMPREPLY=( $(compgen -W "$commands $(_brewmaster_packages)" -- "$cur") )
     fi

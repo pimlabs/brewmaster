@@ -233,7 +233,56 @@ set_level() {
   LEVEL="$1"; LEVEL_EXPLICIT=true
 }
 
+# _hoist_command — move the command (and the word right after it, its
+# sub-subcommand or first positional) to the front of the argument list, so
+# flags may precede the command: "brewmaster -n snapshot list" is
+# "brewmaster snapshot list -n". The command is the first non-flag word that
+# names a command; the word after a space-form value flag (--level patch,
+# --profile work, ...) is that flag's value and is never the command.
+# Args:   the CLI arguments
+# Stdout: nothing (sets HOISTED_ARGS)
+# Return: 0
+HOISTED_ARGS=()
+_hoist_command() {
+  local i=0 n=$# w cmd_at=-1
+  local -a args
+  args=("$@")
+  while (( i < n )); do
+    w="${args[$i]}"
+    case "$w" in
+      --level|--label|--risk-threshold|--profile|--shell|--package|--action|--since|--format)
+        i=$((i + 2)); continue ;;           # space-form value flag: skip its value
+      -*) i=$((i + 1)); continue ;;
+    esac
+    case "$w" in
+      upgrade|snapshot|deps|profile|cleanup|why|bloat|log|report|completion|help) cmd_at=$i ;;
+    esac
+    break                                    # first non-flag word decides
+  done
+  if (( cmd_at <= 0 )); then
+    HOISTED_ARGS=("$@")
+    return 0
+  fi
+  local -a rest
+  local next_at=$((cmd_at + 1))
+  HOISTED_ARGS=("${args[$cmd_at]}")
+  if (( next_at < n )) && [[ "${args[$next_at]}" != -* ]]; then
+    HOISTED_ARGS+=("${args[$next_at]}")
+  else
+    next_at=$cmd_at
+  fi
+  i=0
+  while (( i < n )); do
+    if (( i != cmd_at && i != next_at )); then rest+=("${args[$i]}"); fi
+    i=$((i + 1))
+  done
+  if (( ${#rest[@]} > 0 )); then HOISTED_ARGS+=("${rest[@]}"); fi
+  return 0
+}
+
 # --- Subcommand (defaults to "upgrade") ---
+_hoist_command "$@"
+if (( ${#HOISTED_ARGS[@]} > 0 )); then set -- "${HOISTED_ARGS[@]}"; else set --; fi
 COMMAND="upgrade"
 SNAPSHOT_SUBCMD=""
 if [[ $# -gt 0 && "$1" != -* ]]; then

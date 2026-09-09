@@ -28,12 +28,6 @@ _brewmaster_snapshot_refs() {
 }
 
 _brewmaster_commands() {
-  # bin/brewmaster reads a command only from $1: after a leading flag
-  # the default command runs, so offer only its positional.
-  if [[ ${words[2]} == -* ]]; then
-    _brewmaster_packages
-    return
-  fi
   local -a commands=(
     'upgrade:selective upgrade by semver bump level'
     'snapshot:save, list, diff, restore, or delete snapshots'
