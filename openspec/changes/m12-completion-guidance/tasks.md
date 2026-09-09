@@ -32,5 +32,5 @@
 
 ## 5. Close
 
-- [ ] 5.1 Flip M12 to `[x] done` in `ROADMAP.md` with the as-built note
+- [x] 5.1 Flip M12 to `[x] done` in `ROADMAP.md` with the as-built note
       (CHANGELOG entry lands with the 0.13.0 bump)

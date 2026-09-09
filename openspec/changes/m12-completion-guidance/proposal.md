@@ -53,11 +53,6 @@ to add when it is not.
 - `completion-guidance`: a read-only diagnostic and printer for the
   shipped shell completions.
 
-### Modified Capabilities
-
-- `command-help`: one new section and usage line in the shared help
-  table (man page regenerated from it).
-
 ## Impact
 
 - `lib/brewmaster/completion.sh` — new: `completion_main` and helpers

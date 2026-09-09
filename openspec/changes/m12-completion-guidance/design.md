@@ -22,7 +22,7 @@ selects print mode and takes the same validation.
 `_completion_script_path <shell>` tries, in order, and prints the first
 hit (each attempt is logged with `logv`):
 
-1. the git-checkout layout: `$LIB_DIR/../completions/brewmaster.<ext>`
+1. the git-checkout layout: `$LIB_DIR/../../completions/brewmaster.<ext>`
    (`bash`, `zsh`, `fish`). In a Homebrew install `LIB_DIR` is
    `libexec/brewmaster` and this path does not exist, which is the point.
 2. the formula's install targets under `$(brew --prefix)`, fetched once:
