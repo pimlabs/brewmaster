@@ -316,6 +316,7 @@ source "$LIB_DIR/snapshot.sh"
 source "$LIB_DIR/depgraph.sh"
 source "$LIB_DIR/profile.sh"
 source "$LIB_DIR/cleanup.sh"
+source "$LIB_DIR/completion.sh"
 
 if [[ -n "$PROFILE_NAME" ]]; then
   profile_load "$PROFILE_NAME" || exit 1
