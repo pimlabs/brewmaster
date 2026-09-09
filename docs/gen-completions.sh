@@ -123,6 +123,31 @@ _emit_bash_wordlist() {
   return 0
 }
 
+# _emit_bash_value_flags — space-separated long spellings of every
+# value-taking flag in the spec, across all scopes, deduplicated, in spec
+# order ("--level --profile ... --shell"). The generated script uses it to
+# know which "--flag value" pairs consume the word that follows them, the
+# same rule bin/brewmaster applies when it looks for the command word.
+# Args:   none (reads SPEC_FLAGS)
+# Stdout: the word list (may be empty)
+# Return: 0
+_emit_bash_value_flags() {
+  local f names value long out=""
+  for f in ${SPEC_FLAGS[@]+"${SPEC_FLAGS[@]}"}; do
+    # SPEC_FLAGS entries are "scope|names|value|desc[|opts]".
+    names="$(_spec_field "$f" 2)"
+    value="$(_spec_field "$f" 3)"
+    [[ -z "$value" ]] && continue
+    long="$(_spec_long "$names")"
+    [[ -z "$long" ]] && continue
+    case " $out " in *" $long "*) continue ;; esac
+    out="$out $long"
+  done
+  out="${out# }"
+  printf '%s' "$out"
+  return 0
+}
+
 # _emit_bash_positional_completer <scope> — the runtime completion source
 # for the first positional of a scope, as literal text ready to embed
 # inside a `compgen -W "..."` word list in the generated script (i.e. it
@@ -239,6 +264,9 @@ _emit_bash_eq_cases() {
 # _emit_bash_default_block — print the top-level ("$cmd" still empty)
 # dispatch: SPEC_DEFAULT's own flags when $cur looks like a flag, else
 # the command list plus SPEC_DEFAULT's positional completer (if any).
+# No command yet means the parser would still accept one here — after a
+# leading flag or after a package name alike — so commands are always
+# offered.
 # Args:   none (reads SPEC_DEFAULT, SPEC_ARGS)
 # Stdout: the `if [[ -z "$cmd" ]]; then ... fi` block
 # Return: 0
@@ -253,14 +281,6 @@ _emit_bash_default_block() {
   echo '  if [[ -z "$cmd" ]]; then'
   echo '    if [[ "$cur" == -* ]]; then'
   printf '      COMPREPLY=( $(compgen -W "$general $%s_flags" -- "$cur") )\n' "$def"
-  echo '    elif [[ "${COMP_WORDS[1]}" == -* ]]; then'
-  echo '      # A leading flag: bin/brewmaster only reads a command from $1, so'
-  printf '      # the default command runs and only its positional applies.\n'
-  if [[ -n "$completer" ]]; then
-    printf '      COMPREPLY=( $(compgen -W "%s" -- "$cur") )\n' "$completer"
-  else
-    echo '      COMPREPLY=()'
-  fi
   echo '    else'
   printf '      COMPREPLY=( $(compgen -W "%s" -- "$cur") )\n' "$list"
   echo '    fi'
@@ -408,6 +428,9 @@ HEADER
   # general (global) flags word list
   printf '  local general="%s"\n' "$(_emit_bash_wordlist global)"
 
+  # value-taking flags: "--flag value" consumes the word after it
+  printf '  local value_flags="%s"\n' "$(_emit_bash_value_flags)"
+
   # per-command flags / subflags word lists
   for c in "${SPEC_CMDS[@]}"; do
     subs="$(_spec_subs_of "$c")"
@@ -430,17 +453,37 @@ EOF
   echo
 
   cat <<'MIDDLE'
-  # First two non-flag words after "brewmaster" = command and sub-subcommand.
-  # bin/brewmaster recognises a command only as its first argument, so a
-  # leading flag means the default command runs and no command is looked for.
+  # Command = the first non-flag word that is a known command name, wherever
+  # it sits (bin/brewmaster reads it the same way, so "-n snapshot" is
+  # "snapshot -n"); sub-subcommand = the next non-flag word after it. The
+  # word after a space-form value flag ("--level patch") is that flag's
+  # value, never a command. When bash has split "--flag=value" at the "="
+  # (COMP_WORDBREAKS) the "=" and the value are skipped together.
   cmd=""; sub=""
-  if [[ "${COMP_WORDS[1]}" != -* ]]; then
-    for ((i = 1; i < COMP_CWORD; i++)); do
-      w="${COMP_WORDS[i]}"
-      [[ "$w" == -* ]] && continue
-      if [[ -z "$cmd" ]]; then cmd="$w"
-      elif [[ -z "$sub" ]]; then sub="$w"; fi
-    done
+  for ((i = 1; i < COMP_CWORD; i++)); do
+    w="${COMP_WORDS[i]}"
+    if [[ "$w" == -* ]]; then
+      case " $value_flags " in
+        *" $w "*)
+          i=$((i+1))
+          [[ "${COMP_WORDS[i]:-}" == "=" ]] && i=$((i+1)) ;;
+      esac
+      continue
+    fi
+    if [[ -z "$cmd" ]]; then
+      case " $commands " in *" $w "*) cmd="$w" ;; esac
+    elif [[ -z "$sub" ]]; then sub="$w"; fi
+  done
+
+  # bash splits "--flag=value" at the "=" (COMP_WORDBREAKS): "--flag=<TAB>"
+  # arrives as cur="=" after prev="--flag", and "--flag=va<TAB>" as cur="va"
+  # after prev="=". Fold both back into the "--flag value" case below and
+  # complete the bare value — readline keeps the "--flag=" already typed,
+  # so COMPREPLY must not repeat it.
+  if [[ "$cur" == "=" ]]; then
+    case " $value_flags " in *" $prev "*) cur="" ;; esac
+  elif [[ "$prev" == "=" && COMP_CWORD -ge 2 ]]; then
+    prev="${COMP_WORDS[COMP_CWORD-2]}"
   fi
 
 MIDDLE
@@ -451,7 +494,8 @@ MIDDLE
   echo '  esac'
   echo
 
-  echo '  # "--flag=value" (no-space) completion.'
+  echo '  # "--flag=value" (no-space) completion, for shells that took "=" out of'
+  echo '  # COMP_WORDBREAKS: the whole word is $cur, so the prefix is re-added.'
   echo '  case "$cur" in'
   _emit_bash_eq_cases
   echo '  esac'
@@ -514,10 +558,16 @@ _emit_zsh_desc() {
 # Stdout: the quoted entry, e.g. 'save:save current state to a snapshot'
 # Return: 0
 _emit_zsh_item() {
-  local name="$1" desc
+  local name="$1" desc out="" c i
   desc=$(_emit_zsh_desc "$2")
-  desc="${desc//:/\\:}"
-  printf "'%s:%s'\n" "$name" "$desc"
+  # ":" separates name from description in _describe items; escape it with
+  # a character loop (bash 3.2 and 4.3+ disagree on backslashes in a
+  # double-quoted ${s//pat/rep} replacement).
+  for ((i = 0; i < ${#desc}; i++)); do
+    c="${desc:$i:1}"
+    if [[ "$c" == ":" ]]; then out="$out\\:"; else out="$out$c"; fi
+  done
+  printf "'%s:%s'\n" "$name" "$out"
 }
 
 # _emit_zsh_pos_action — the _arguments action for a positional type.
@@ -739,25 +789,10 @@ HEADER
 
   # Top-level command list; the default command's first positional is
   # offered alongside the commands (brewmaster <package> == brewmaster <default> <package>).
+  # _arguments -A '-*' in _brewmaster already stepped over any leading flags
+  # (and the value of a "--flag value" pair), so this is reached wherever
+  # bin/brewmaster would accept a command word.
   printf '_brewmaster_commands() {\n'
-  printf '  # bin/brewmaster reads a command only from $1: after a leading flag\n'
-  printf '  # the default command runs, so offer only its positional.\n'
-  printf '  if [[ ${words[2]} == -* ]]; then\n'
-  if [[ -n "$SPEC_DEFAULT" ]]; then
-    while IFS= read -r rec; do
-      [[ -n "$rec" ]] || continue
-      case "$(_spec_field "$rec" 1)" in 1|'*') ;; *) continue ;; esac
-      type=$(_spec_field "$rec" 2)
-      action=$(_emit_zsh_pos_action "$type")
-      case "$action" in
-        '')   ;;
-        '('*) action="${action#(}"; printf '    compadd -- %s\n' "${action%)}" ;;
-        *)    printf '    %s\n' "$action" ;;
-      esac
-    done < <(_spec_args_of "$SPEC_DEFAULT")
-  fi
-  printf '    return\n'
-  printf '  fi\n'
   printf '  local -a commands=(\n'
   i=0
   while (( i < ${#SPEC_CMDS[@]} )); do
@@ -892,7 +927,12 @@ EOF
 }
 
 # _emit_fish_no_subcommand — the __fish_brewmaster_no_subcommand fish
-# function, generated from SPEC_CMDS (never hardcoded).
+# function, generated from SPEC_CMDS (never hardcoded). It is the gate for
+# the command names: bin/brewmaster takes the first known command name
+# wherever it sits (after flags, after a package name), so they stay on
+# offer until one has been typed. __fish_seen_subcommand_from matches
+# command names only, so the value of a "--flag value" pair ("--level
+# patch") never counts as one.
 # Globals (read): SPEC_CMDS
 # Stdout: the fish function definition
 # Return: 0
@@ -902,12 +942,6 @@ _emit_fish_no_subcommand() {
   cat <<EOF
 function __fish_brewmaster_no_subcommand
     not __fish_seen_subcommand_from $names
-end
-
-# bin/brewmaster reads a command only from its first argument: after a
-# leading flag the default command runs, so command names are not offered.
-function __fish_brewmaster_command_slot
-    __fish_brewmaster_no_subcommand; and not string match -q -- '-*' (commandline -opc)[2]
 end
 EOF
   return 0
@@ -1044,7 +1078,7 @@ _emit_fish_top_level() {
   local i
   for i in "${!SPEC_CMDS[@]}"; do
     printf 'complete -c brewmaster -n %s -f -a %s -d %s\n' \
-      "$(_emit_fish_quote "__fish_brewmaster_command_slot")" \
+      "$(_emit_fish_quote "__fish_brewmaster_no_subcommand")" \
       "$(_emit_fish_quote "${SPEC_CMDS[$i]}")" \
       "$(_emit_fish_quote "${SPEC_CMD_DESC[$i]}")"
   done
