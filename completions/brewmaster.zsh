@@ -28,6 +28,12 @@ _brewmaster_snapshot_refs() {
 }
 
 _brewmaster_commands() {
+  # bin/brewmaster reads a command only from $1: after a leading flag
+  # the default command runs, so offer only its positional.
+  if [[ ${words[2]} == -* ]]; then
+    _brewmaster_packages
+    return
+  fi
   local -a commands=(
     'upgrade:selective upgrade by semver bump level'
     'snapshot:save, list, diff, restore, or delete snapshots'
@@ -39,6 +45,7 @@ _brewmaster_commands() {
     'log:show audit log entries'
     'report:machine health summary'
     'completion:completion status for your shell, or print a completion script'
+    'help:show help for a command'
   )
   _describe -t commands 'command' commands
   _brewmaster_packages
@@ -271,6 +278,14 @@ _brewmaster_completion() {
     '1:shell:(bash zsh fish)'
 }
 
+_brewmaster_help() {
+  _arguments \
+    '(-v --verbose)'{-v,--verbose}'[verbose output]' \
+    '(-V --version)'{-V,--version}'[print version and exit]' \
+    '(-h --help)'{-h,--help}'[show this help]' \
+    '1:command:(upgrade snapshot deps profile cleanup why bloat log report completion help)'
+}
+
 _brewmaster() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -309,6 +324,7 @@ _brewmaster() {
         log)          _brewmaster_log ;;
         report)       _brewmaster_report ;;
         completion)   _brewmaster_completion ;;
+        help)         _brewmaster_help ;;
         *)            _brewmaster_upgrade ;;
       esac
       ;;

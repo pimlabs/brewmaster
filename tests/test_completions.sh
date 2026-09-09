@@ -34,16 +34,16 @@ spec_cmds="$(_cli_spec | awk -F'|' '$1=="cmd"{print $2}' | sort)"
 # The subcommand parser is the case block between the two markers; labels
 # may be joined with "|" (cleanup|why|bloat|log|report).
 parser_cmds="$(sed -n '/^# --- Subcommand/,/^# --- Argument parsing/p' "$BIN" \
-  | grep -oE '^ +[a-z|]+\)' | tr -d ' )' | tr '|' '\n' | grep -v '^help$' | sort)"
+  | grep -oE '^ +[a-z|]+\)' | tr -d ' )' | tr '|' '\n' | sort)"
 missing_in_parser="$(comm -23 <(echo "$spec_cmds") <(echo "$parser_cmds"))"
 missing_in_spec="$(comm -13 <(echo "$spec_cmds") <(echo "$parser_cmds"))"
 [ -z "$missing_in_parser" ] && ok || bad "commands in the spec but not parsed by bin/brewmaster: $(echo "$missing_in_parser" | tr '\n' ' ')"
 [ -z "$missing_in_spec" ]   && ok || bad "commands parsed by bin/brewmaster but missing from the spec: $(echo "$missing_in_spec" | tr '\n' ' ')"
 
-# --- 4. spec <-> parser: sub-subcommands appear as dispatch labels ---
+# --- 4. spec <-> parser: sub-subcommands are dispatch labels inside their command's block ---
 missing_subs=""
 while IFS='|' read -r cmd name _; do
-  grep -qE "^ +$name\)" "$BIN" || missing_subs+=" $cmd.$name"
+  sed -n "/^  $cmd)/,/^    ;;/p" "$BIN" | grep -qE "^ +$name\)" || missing_subs+=" $cmd.$name"
 done < <(_cli_spec | awk -F'|' '$1=="sub"{print $2"|"$3"|"$4}')
 [ -z "$missing_subs" ] && ok || bad "sub-subcommands in the spec without a dispatch label in bin/brewmaster:$missing_subs"
 
@@ -56,10 +56,11 @@ missing_in_spec="$(comm -13 <(echo "$spec_flags") <(echo "$parser_flags"))"
 [ -z "$missing_in_parser" ] && ok || bad "flags in the spec but not parsed by bin/brewmaster: $(echo "$missing_in_parser" | tr '\n' ' ')"
 [ -z "$missing_in_spec" ]   && ok || bad "flags parsed by bin/brewmaster but missing from the spec: $(echo "$missing_in_spec" | tr '\n' ' ')"
 
-# --- 6. spec <-> help: every command and long flag is mentioned in help_data.sh ---
+# --- 6. spec <-> help: every command and long flag is a documented entry in help_data.sh
+#        (the word at the start of a usage or option line, not a mention in prose) ---
 missing_help=""
-while IFS= read -r c; do grep -q -- "$c" "$HELP" || missing_help+=" $c"; done <<<"$spec_cmds"
-while IFS= read -r f; do grep -q -- "$f" "$HELP" || missing_help+=" $f"; done <<<"$spec_flags"
+while IFS= read -r c; do grep -qE "^ +(brewmaster )?$c( |$)" "$HELP" || missing_help+=" $c"; done <<<"$spec_cmds"
+while IFS= read -r f; do grep -qE "^ +(-[A-Za-z], )?$f(=|,| |$)" "$HELP" || missing_help+=" $f"; done <<<"$spec_flags"
 [ -z "$missing_help" ] && ok || bad "in the spec but absent from help_data.sh:$missing_help"
 
 # --- 7. syntax: bash always; zsh and fish when installed ---

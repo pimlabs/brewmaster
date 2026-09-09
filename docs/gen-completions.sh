@@ -59,11 +59,11 @@ _spec_load() {
 }
 
 # _spec_subs_of <cmd> — sub-subcommands of a command, "name|desc" per line.
-_spec_subs_of()  { local c="$1" s; for s in "${SPEC_SUBS[@]}";  do if [[ "${s%%|*}" == "$c" ]];  then printf '%s\n' "${s#*|}"; fi; done; return 0; }
+_spec_subs_of()  { local c="$1" s; for s in ${SPEC_SUBS[@]+"${SPEC_SUBS[@]}"};  do if [[ "${s%%|*}" == "$c" ]];  then printf '%s\n' "${s#*|}"; fi; done; return 0; }
 # _spec_flags_of <scope> — flags of a scope (global | cmd | cmd.sub), "names|value|desc[|opts]" per line.
-_spec_flags_of() { local sc="$1" f; for f in "${SPEC_FLAGS[@]}"; do if [[ "${f%%|*}" == "$sc" ]]; then printf '%s\n' "${f#*|}"; fi; done; return 0; }
+_spec_flags_of() { local sc="$1" f; for f in ${SPEC_FLAGS[@]+"${SPEC_FLAGS[@]}"}; do if [[ "${f%%|*}" == "$sc" ]]; then printf '%s\n' "${f#*|}"; fi; done; return 0; }
 # _spec_args_of <scope> — positionals of a scope, "pos|type|label" per line.
-_spec_args_of()  { local sc="$1" a; for a in "${SPEC_ARGS[@]}";  do if [[ "${a%%|*}" == "$sc" ]]; then printf '%s\n' "${a#*|}"; fi; done; return 0; }
+_spec_args_of()  { local sc="$1" a; for a in ${SPEC_ARGS[@]+"${SPEC_ARGS[@]}"};  do if [[ "${a%%|*}" == "$sc" ]]; then printf '%s\n' "${a#*|}"; fi; done; return 0; }
 # _spec_long <names> — the long spelling of a comma-separated names field ("-n,--dry-run" -> "--dry-run").
 _spec_long()  { local n; for n in ${1//,/ }; do if [[ "$n" == --* ]]; then printf '%s\n' "$n"; return 0; fi; done; return 0; }
 # _spec_short <names> — the short spelling, or nothing ("-n,--dry-run" -> "-n").
@@ -134,7 +134,7 @@ _emit_bash_wordlist() {
 # Return: 0
 _emit_bash_positional_completer() {
   local scope="$1" a type=""
-  for a in "${SPEC_ARGS[@]}"; do
+  for a in ${SPEC_ARGS[@]+"${SPEC_ARGS[@]}"}; do
     if [[ "${a%%|*}" == "$scope" ]]; then
       type="$(_spec_field "$a" 3)"
       break
@@ -144,8 +144,25 @@ _emit_bash_positional_completer() {
     package) printf '%s' '$(_brewmaster_packages)' ;;
     profile) printf '%s' '$(_brewmaster_profiles)' ;;
     shell)   printf '%s' 'bash zsh fish' ;;
+    command) printf '%s' '$commands' ;;
     *)       printf '%s' '' ;;
   esac
+  return 0
+}
+
+# _emit_bash_first_arg_pos <scope> — the position field of a scope's first
+# positional record ("1", "2" or "*"), or nothing when it has none.
+# Args:   $1 = scope
+# Stdout: the position, or nothing
+# Return: 0
+_emit_bash_first_arg_pos() {
+  local scope="$1" a
+  for a in ${SPEC_ARGS[@]+"${SPEC_ARGS[@]}"}; do
+    if [[ "${a%%|*}" == "$scope" ]]; then
+      _spec_field "$a" 2
+      return 0
+    fi
+  done
   return 0
 }
 
@@ -154,7 +171,7 @@ _emit_bash_positional_completer() {
 # Return: 0 if it has at least one arg record, 1 otherwise
 _emit_bash_has_args() {
   local scope="$1" a
-  for a in "${SPEC_ARGS[@]}"; do
+  for a in ${SPEC_ARGS[@]+"${SPEC_ARGS[@]}"}; do
     [[ "${a%%|*}" == "$scope" ]] && return 0
   done
   return 1
@@ -170,7 +187,7 @@ _emit_bash_has_args() {
 # Return: 0
 _emit_bash_prev_cases() {
   local f names value long seen="" free=""
-  for f in "${SPEC_FLAGS[@]}"; do
+  for f in ${SPEC_FLAGS[@]+"${SPEC_FLAGS[@]}"}; do
     # SPEC_FLAGS entries are "scope|names|value|desc[|opts]".
     names="$(_spec_field "$f" 2)"
     value="$(_spec_field "$f" 3)"
@@ -200,7 +217,7 @@ _emit_bash_prev_cases() {
 # Return: 0
 _emit_bash_eq_cases() {
   local f names value long seen=""
-  for f in "${SPEC_FLAGS[@]}"; do
+  for f in ${SPEC_FLAGS[@]+"${SPEC_FLAGS[@]}"}; do
     # SPEC_FLAGS entries are "scope|names|value|desc[|opts]".
     names="$(_spec_field "$f" 2)"
     value="$(_spec_field "$f" 3)"
@@ -236,6 +253,14 @@ _emit_bash_default_block() {
   echo '  if [[ -z "$cmd" ]]; then'
   echo '    if [[ "$cur" == -* ]]; then'
   printf '      COMPREPLY=( $(compgen -W "$general $%s_flags" -- "$cur") )\n' "$def"
+  echo '    elif [[ "${COMP_WORDS[1]}" == -* ]]; then'
+  echo '      # A leading flag: bin/brewmaster only reads a command from $1, so'
+  printf '      # the default command runs and only its positional applies.\n'
+  if [[ -n "$completer" ]]; then
+    printf '      COMPREPLY=( $(compgen -W "%s" -- "$cur") )\n' "$completer"
+  else
+    echo '      COMPREPLY=()'
+  fi
   echo '    else'
   printf '      COMPREPLY=( $(compgen -W "%s" -- "$cur") )\n' "$list"
   echo '    fi'
@@ -281,10 +306,10 @@ EOF
   sublist="${sublist# }"
 
   printf '    %s)\n' "$c"
-  printf '      if [[ -z "$sub" ]]; then\n'
-  printf '        COMPREPLY=( $(compgen -W "%s" -- "$cur") )\n' "$sublist"
-  printf '      elif [[ "$cur" == -* ]]; then\n'
+  printf '      if [[ "$cur" == -* ]]; then\n'
   printf '        COMPREPLY=( $(compgen -W "$general $%s_subflags" -- "$cur") )\n' "$c"
+  printf '      elif [[ -z "$sub" ]]; then\n'
+  printf '        COMPREPLY=( $(compgen -W "%s" -- "$cur") )\n' "$sublist"
   if (( ${#gcompleter[@]} > 0 )); then
     printf '      else\n'
     printf '        case "$sub" in\n'
@@ -321,7 +346,12 @@ _emit_bash_cmd_block() {
     completer="$(_emit_bash_positional_completer "$c")"
     printf '      if [[ "$cur" == -* ]]; then\n'
     printf '        COMPREPLY=( $(compgen -W "$general $%s_flags" -- "$cur") )\n' "$c"
-    printf '      else\n'
+    if [[ "$(_emit_bash_first_arg_pos "$c")" == '*' ]]; then
+      printf '      else\n'
+    else
+      # One positional: once it is typed ($sub), offer nothing more.
+      printf '      elif [[ -z "$sub" ]]; then\n'
+    fi
     if [[ -n "$completer" ]]; then
       printf '        COMPREPLY=( $(compgen -W "%s" -- "$cur") )\n' "$completer"
     fi
@@ -382,7 +412,7 @@ HEADER
   for c in "${SPEC_CMDS[@]}"; do
     subs="$(_spec_subs_of "$c")"
     if [[ -n "$subs" ]]; then
-      union=""
+      union="$(_emit_bash_wordlist "$c")"
       while IFS= read -r line; do
         [[ -z "$line" ]] && continue
         sname="${line%%|*}"
@@ -401,13 +431,17 @@ EOF
 
   cat <<'MIDDLE'
   # First two non-flag words after "brewmaster" = command and sub-subcommand.
+  # bin/brewmaster recognises a command only as its first argument, so a
+  # leading flag means the default command runs and no command is looked for.
   cmd=""; sub=""
-  for ((i = 1; i < COMP_CWORD; i++)); do
-    w="${COMP_WORDS[i]}"
-    [[ "$w" == -* ]] && continue
-    if [[ -z "$cmd" ]]; then cmd="$w"
-    elif [[ -z "$sub" ]]; then sub="$w"; fi
-  done
+  if [[ "${COMP_WORDS[1]}" != -* ]]; then
+    for ((i = 1; i < COMP_CWORD; i++)); do
+      w="${COMP_WORDS[i]}"
+      [[ "$w" == -* ]] && continue
+      if [[ -z "$cmd" ]]; then cmd="$w"
+      elif [[ -z "$sub" ]]; then sub="$w"; fi
+    done
+  fi
 
 MIDDLE
 
@@ -451,6 +485,7 @@ MIDDLE
 # Return: 0
 _emit_zsh_q() {
   local s="$1"
+  s="${s//\\/\\\\}"
   s="${s//\'/\'\\\'\'}"
   s="${s//\[/\\[}"
   s="${s//\]/\\]}"
@@ -489,6 +524,7 @@ _emit_zsh_pos_action() {
     profile)  printf '%s\n' '_brewmaster_profiles' ;;
     snapshot) printf '%s\n' '_brewmaster_snapshot_refs' ;;
     shell)    printf '%s\n' '(bash zsh fish)' ;;
+    command)  printf '(%s)\n' "${SPEC_CMDS[*]}" ;;
     *)        printf '\n' ;;
   esac
 }
@@ -698,6 +734,24 @@ HEADER
   # Top-level command list; the default command's first positional is
   # offered alongside the commands (brewmaster <package> == brewmaster <default> <package>).
   printf '_brewmaster_commands() {\n'
+  printf '  # bin/brewmaster reads a command only from $1: after a leading flag\n'
+  printf '  # the default command runs, so offer only its positional.\n'
+  printf '  if [[ ${words[2]} == -* ]]; then\n'
+  if [[ -n "$SPEC_DEFAULT" ]]; then
+    while IFS= read -r rec; do
+      [[ -n "$rec" ]] || continue
+      case "$(_spec_field "$rec" 1)" in 1|'*') ;; *) continue ;; esac
+      type=$(_spec_field "$rec" 2)
+      action=$(_emit_zsh_pos_action "$type")
+      case "$action" in
+        '')   ;;
+        '('*) action="${action#(}"; printf '    compadd -- %s\n' "${action%)}" ;;
+        *)    printf '    %s\n' "$action" ;;
+      esac
+    done < <(_spec_args_of "$SPEC_DEFAULT")
+  fi
+  printf '    return\n'
+  printf '  fi\n'
   printf '  local -a commands=(\n'
   i=0
   while (( i < ${#SPEC_CMDS[@]} )); do
@@ -806,6 +860,9 @@ EOF
 # Return: 0
 _emit_fish_preamble() {
   cat <<'EOF'
+# brewmaster takes no file arguments: never fall back to file names.
+complete -c brewmaster -f
+
 function __fish_brewmaster_packages
     brew list --formula --cask 2>/dev/null
 end
@@ -831,6 +888,12 @@ _emit_fish_no_subcommand() {
 function __fish_brewmaster_no_subcommand
     not __fish_seen_subcommand_from $names
 end
+
+# bin/brewmaster reads a command only from its first argument: after a
+# leading flag the default command runs, so command names are not offered.
+function __fish_brewmaster_command_slot
+    __fish_brewmaster_no_subcommand; and not string match -q -- '-*' (commandline -opc)[2]
+end
 EOF
   return 0
 }
@@ -838,14 +901,20 @@ EOF
 # _emit_fish_arg_line <cond> <type> — one `complete -a` line for a
 # positional's dynamic/static value list, or nothing for types the
 # hand-written script does not complete (snapshot refs).
-# Args:   $1 = base fish condition (unquoted), $2 = arg type
+# Args:   $1 = base fish condition (unquoted), $2 = arg type,
+#         $3 = description (optional; adds -d)
 # Stdout: one `complete` line, or nothing
 # Return: 0
 _emit_fish_arg_line() {
-  local cond="$1" type="$2" a=""
+  local cond="$1" type="$2" desc="${3:-}" a=""
   case "$type" in
     package) a="(__fish_brewmaster_packages)" ;;
     profile) a="(__fish_brewmaster_profiles)" ;;
+    command)
+      a="${SPEC_CMDS[*]}"
+      # Exactly "brewmaster <cmd>" so far: the command slot is next.
+      cond="$cond; and test (count (commandline -opc)) -eq 2"
+      ;;
     shell)
       a="bash zsh fish"
       # Shell names double as the value list here (like a sub-subcommand
@@ -855,8 +924,13 @@ _emit_fish_arg_line() {
     snapshot) return 0 ;;
     *) return 0 ;;
   esac
-  printf 'complete -c brewmaster -n %s -f -a %s\n' \
-    "$(_emit_fish_quote "$cond")" "$(_emit_fish_quote "$a")"
+  if [[ -n "$desc" ]]; then
+    printf 'complete -c brewmaster -n %s -f -a %s -d %s\n' \
+      "$(_emit_fish_quote "$cond")" "$(_emit_fish_quote "$a")" "$(_emit_fish_quote "$desc")"
+  else
+    printf 'complete -c brewmaster -n %s -f -a %s\n' \
+      "$(_emit_fish_quote "$cond")" "$(_emit_fish_quote "$a")"
+  fi
   return 0
 }
 
@@ -869,15 +943,20 @@ _emit_fish_arg_line() {
 # Stdout: zero or more `complete` lines
 # Return: 0
 _emit_fish_positionals() {
-  local scope="$1" cond="$2" line type seen=""
+  local scope="$1" cond="$2" line type desc seen=""
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     type=$(_spec_field "$line" 2)
+    # "pos|type|label[|desc]": the description falls back to the label.
+    case "$line" in
+      *"|"*"|"*"|"*) desc=$(_spec_field "$line" 4) ;;
+      *)             desc=$(_spec_field "$line" 3) ;;
+    esac
     case " $seen " in
       *" $type "*) continue ;;
     esac
     seen="$seen $type"
-    _emit_fish_arg_line "$cond" "$type"
+    _emit_fish_arg_line "$cond" "$type" "$desc"
   done < <(_spec_args_of "$scope")
   return 0
 }
@@ -906,6 +985,11 @@ _emit_fish_flag_line() {
     out="$out -n $(_emit_fish_quote "$cond")"
   fi
   out="$out -f"
+  # A value-taking flag requires its parameter (-r); with -f that means
+  # `--label <TAB>` offers nothing rather than files.
+  if [[ -n "$value" ]]; then
+    out="$out -r"
+  fi
   if [[ -n "$short" ]]; then
     out="$out -s ${short#-}"
   fi
@@ -945,7 +1029,7 @@ _emit_fish_top_level() {
   local i
   for i in "${!SPEC_CMDS[@]}"; do
     printf 'complete -c brewmaster -n %s -f -a %s -d %s\n' \
-      "$(_emit_fish_quote "__fish_brewmaster_no_subcommand")" \
+      "$(_emit_fish_quote "__fish_brewmaster_command_slot")" \
       "$(_emit_fish_quote "${SPEC_CMDS[$i]}")" \
       "$(_emit_fish_quote "${SPEC_CMD_DESC[$i]}")"
   done

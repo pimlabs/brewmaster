@@ -623,10 +623,12 @@ completions the treatment `gen-man.sh` + `test_docs.sh` already gave
 the man page:
 
 - `lib/brewmaster/core/cli_spec.sh` — `_cli_spec` prints the CLI surface
-  as `|`-separated records (10 commands, 11 sub-subcommands, 10
+  as `|`-separated records (11 commands, 11 sub-subcommands, 11
   positionals, 28 flags) with the grammar in its header: `cmd`, `sub`,
   `arg`, `flag`; value kinds boolean / enum / `@package` / `@profile` /
-  free placeholder; `excl=` groups; `default` marks `upgrade`.
+  free placeholder; `excl=` groups; `default` marks `upgrade`. `help`
+  is a command like any other now (it was parsed and documented but no
+  completion offered it), with a `command` positional type.
 - `docs/gen-completions.sh <bash|zsh|fish>` — loads the spec into
   parallel arrays (bash 3.2, no associative arrays), then one emitter
   per shell. Only the dynamic-completer preambles (`brew list`,
@@ -647,8 +649,12 @@ command in bash). Zsh gained what the spec made free: every flag has its
 description, the global `-v/-V/-h` flags are offered in every context,
 `upgrade`'s flags are offered at top level (it is the default command),
 and `_arguments -C` gets `-A '-*'` so an unknown flag no longer swallows
-the sub-subcommand slot. Nothing that any completion offered before was
-removed.
+the sub-subcommand slot. Two behaviors were corrected in all three shells
+against the parser rather than the old scripts: `bin/brewmaster` reads a
+command only from its first argument, so after a leading flag
+(`brewmaster -n <TAB>`) only packages are offered, not command names;
+and fish never falls back to file names, since brewmaster takes no file
+arguments (`complete -f`, and `-r` on value-taking flags).
 
 #### Files
 

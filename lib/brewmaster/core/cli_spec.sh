@@ -13,9 +13,10 @@
 #       none is given (its flags and positionals are valid at top level).
 #   sub|<cmd>|<name>|<description>
 #       A sub-subcommand (brewmaster <cmd> <name>).
-#   arg|<scope>|<position>|<type>|<label>
+#   arg|<scope>|<position>|<type>|<label>[|<description>]
 #       A positional. scope = <cmd> or <cmd>.<sub>; position = 1, 2 or *
-#       (repeatable); type = package | profile | snapshot | shell.
+#       (repeatable); type = package | profile | snapshot | shell | command.
+#       description is optional (shown by shells that describe positionals).
 #   flag|<scope>|<names>|<value>|<description>[|excl=<group>]
 #       A flag. scope = global | <cmd> | <cmd>.<sub>; names = comma-separated
 #       spellings (-n,--dry-run); value = "" for a boolean flag, a
@@ -28,7 +29,7 @@
 # Stdout: records (see the grammar above), comments and blank lines stripped
 # Return: 0
 _cli_spec() {
-  grep -vE '^\s*(#|$)' <<'SPEC'
+  grep -vE '^[[:space:]]*(#|$)' <<'SPEC'
 cmd|upgrade|Selective upgrade by semver bump level|default
 cmd|snapshot|Save, list, diff, restore, or delete snapshots
 cmd|deps|Show dependency risk
@@ -39,6 +40,7 @@ cmd|bloat|Installed package summary and cleanup candidates
 cmd|log|Show audit log entries
 cmd|report|Machine health summary
 cmd|completion|Completion status for your shell, or print a completion script
+cmd|help|Show help for a command
 
 sub|snapshot|save|Save current state to a snapshot
 sub|snapshot|list|List all snapshots
@@ -61,7 +63,8 @@ arg|profile.edit|1|profile|profile
 arg|profile.diff|1|profile|profile
 arg|profile.diff|2|profile|profile
 arg|why|1|package|package
-arg|completion|1|shell|shell
+arg|completion|1|shell|shell|Print this shell's completion script
+arg|help|1|command|command
 
 flag|global|-v,--verbose||Verbose output
 flag|global|-V,--version||Print version and exit

@@ -22,7 +22,7 @@ _brewmaster() {
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-  local commands="upgrade snapshot deps profile cleanup why bloat log report completion"
+  local commands="upgrade snapshot deps profile cleanup why bloat log report completion help"
   local general="-v --verbose -V --version -h --help"
   local upgrade_flags="--patch --minor --major --level= --or-lower --allow-date -n --dry-run --formulae --casks --profile= -i --interactive --check-deps --risk-threshold= -y --yes"
   local snapshot_subflags="--label= -n --dry-run --force"
@@ -34,15 +34,20 @@ _brewmaster() {
   local log_flags="--package= --action= --since= --format="
   local report_flags=""
   local completion_flags="--shell="
+  local help_flags=""
 
   # First two non-flag words after "brewmaster" = command and sub-subcommand.
+  # bin/brewmaster recognises a command only as its first argument, so a
+  # leading flag means the default command runs and no command is looked for.
   cmd=""; sub=""
-  for ((i = 1; i < COMP_CWORD; i++)); do
-    w="${COMP_WORDS[i]}"
-    [[ "$w" == -* ]] && continue
-    if [[ -z "$cmd" ]]; then cmd="$w"
-    elif [[ -z "$sub" ]]; then sub="$w"; fi
-  done
+  if [[ "${COMP_WORDS[1]}" != -* ]]; then
+    for ((i = 1; i < COMP_CWORD; i++)); do
+      w="${COMP_WORDS[i]}"
+      [[ "$w" == -* ]] && continue
+      if [[ -z "$cmd" ]]; then cmd="$w"
+      elif [[ -z "$sub" ]]; then sub="$w"; fi
+    done
+  fi
 
   # "--flag value" (space-separated) completion.
   case "$prev" in
@@ -68,6 +73,10 @@ _brewmaster() {
   if [[ -z "$cmd" ]]; then
     if [[ "$cur" == -* ]]; then
       COMPREPLY=( $(compgen -W "$general $upgrade_flags" -- "$cur") )
+    elif [[ "${COMP_WORDS[1]}" == -* ]]; then
+      # A leading flag: bin/brewmaster only reads a command from $1, so
+      # the default command runs and only its positional applies.
+      COMPREPLY=( $(compgen -W "$(_brewmaster_packages)" -- "$cur") )
     else
       COMPREPLY=( $(compgen -W "$commands $(_brewmaster_packages)" -- "$cur") )
     fi
@@ -83,17 +92,17 @@ _brewmaster() {
       fi
       ;;
     snapshot)
-      if [[ -z "$sub" ]]; then
-        COMPREPLY=( $(compgen -W "save list diff restore delete" -- "$cur") )
-      elif [[ "$cur" == -* ]]; then
+      if [[ "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W "$general $snapshot_subflags" -- "$cur") )
+      elif [[ -z "$sub" ]]; then
+        COMPREPLY=( $(compgen -W "save list diff restore delete" -- "$cur") )
       fi
       ;;
     deps)
-      if [[ -z "$sub" ]]; then
-        COMPREPLY=( $(compgen -W "show" -- "$cur") )
-      elif [[ "$cur" == -* ]]; then
+      if [[ "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W "$general $deps_subflags" -- "$cur") )
+      elif [[ -z "$sub" ]]; then
+        COMPREPLY=( $(compgen -W "show" -- "$cur") )
       else
         case "$sub" in
           show) COMPREPLY=( $(compgen -W "$(_brewmaster_packages)" -- "$cur") ) ;;
@@ -101,10 +110,10 @@ _brewmaster() {
       fi
       ;;
     profile)
-      if [[ -z "$sub" ]]; then
-        COMPREPLY=( $(compgen -W "list create edit diff validate" -- "$cur") )
-      elif [[ "$cur" == -* ]]; then
+      if [[ "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W "$general $profile_subflags" -- "$cur") )
+      elif [[ -z "$sub" ]]; then
+        COMPREPLY=( $(compgen -W "list create edit diff validate" -- "$cur") )
       else
         case "$sub" in
           edit|diff) COMPREPLY=( $(compgen -W "$(_brewmaster_profiles)" -- "$cur") ) ;;
@@ -117,7 +126,7 @@ _brewmaster() {
     why)
       if [[ "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W "$general $why_flags" -- "$cur") )
-      else
+      elif [[ -z "$sub" ]]; then
         COMPREPLY=( $(compgen -W "$(_brewmaster_packages)" -- "$cur") )
       fi
       ;;
@@ -133,8 +142,15 @@ _brewmaster() {
     completion)
       if [[ "$cur" == -* ]]; then
         COMPREPLY=( $(compgen -W "$general $completion_flags" -- "$cur") )
-      else
+      elif [[ -z "$sub" ]]; then
         COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+      fi
+      ;;
+    help)
+      if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "$general $help_flags" -- "$cur") )
+      elif [[ -z "$sub" ]]; then
+        COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
       fi
       ;;
   esac
