@@ -1,9 +1,8 @@
 # Bash completion for brewmaster.
 #
-# Manual install (until the Homebrew formula installs this automatically):
-#   source completions/brewmaster.bash
-# or copy it into a directory your shell sources completions from, e.g.:
-#   cp completions/brewmaster.bash "$(brew --prefix)/etc/bash_completion.d/brewmaster"
+# Installed by the Homebrew formula (bash_completion.install). From a git
+# checkout: source completions/brewmaster.bash, or copy it into
+#   "$(brew --prefix)/etc/bash_completion.d/brewmaster"
 
 _brewmaster_packages() {
   brew list --formula --cask 2>/dev/null

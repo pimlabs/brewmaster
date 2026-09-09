@@ -200,8 +200,15 @@ ui_select() {
     binds="start:select-all,${binds}"
     sync="--sync"
   fi
+  # A check mark on selected rows reads as a checklist; outside UTF-8
+  # locales fall back to ASCII. fzf caps pointer and marker at 2 cells,
+  # so the trailing space is the gap between glyph and row text.
+  local pointer='> ' marker='x '
+  case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+    *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) pointer='▸ ' marker='✓ ' ;;
+  esac
   # shellcheck disable=SC2086 # ${sync:+...} is either --sync or no argument at all
   fzf --multi --ansi --height=60% --layout=reverse --border \
-      --pointer='>' --marker='x' ${sync:+"$sync"} \
+      --pointer="$pointer" --marker="$marker" ${sync:+"$sync"} \
       --bind="$binds" --header="$header" --prompt="$prompt" "$@"
 }

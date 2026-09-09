@@ -578,7 +578,8 @@ Deviations from the proposal, all recorded in `design.md`:
   `fzf`'s default for Enter, so behavior is unchanged.
 - **Markers stay ASCII** (`--pointer='>' --marker='x'`): `✓`/`▸` parse
   fine on 0.44.1, so this is taste, not compatibility; flip in
-  `ui_select` at no cost.
+  `ui_select` at no cost. Flipped in **v0.12.2**: `✓ `/`▸ ` under UTF-8
+  locales, `x `/`> ` otherwise, after `x` proved unintuitive in use.
 - Task 0.1 (confirm on macOS that `ctrl-a` was not select-all before)
   was superseded rather than run: `ui_select` binds `ctrl-a` explicitly,
   so the old default no longer matters.

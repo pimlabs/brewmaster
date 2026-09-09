@@ -16,23 +16,36 @@ brew install brewmaster
 
 ## Shell Completions
 
-The tap formula doesn't install these yet, so set them up manually for now:
+`brew install` sets these up for bash, zsh and fish: the formula installs
+them into Homebrew's completion directories, along with the man page
+(`man brewmaster`). Nothing to copy.
 
-```bash
-# bash
-source completions/brewmaster.bash
-# or: cp completions/brewmaster.bash "$(brew --prefix)/etc/bash_completion.d/brewmaster"
+If completion doesn't work, your shell isn't loading Homebrew's
+completions yet:
 
-# zsh
-cp completions/brewmaster.zsh "$(brew --prefix)/share/zsh/site-functions/_brewmaster"
-# then start a new shell (or run `compinit`)
-
-# fish
-cp completions/brewmaster.fish (brew --prefix)/share/fish/vendor_completions.d/brewmaster.fish
+```zsh
+# zsh — add to ~/.zshrc, before compinit
+if type brew &>/dev/null; then
+  FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
+  autoload -Uz compinit && compinit
+fi
 ```
 
-A man page is available at [`docs/brewmaster.1`](./docs/brewmaster.1) —
-view it with `man ./docs/brewmaster.1`.
+```bash
+# bash — install bash-completion@2, then add to ~/.bash_profile
+[[ -r "$(brew --prefix)/etc/profile.d/bash_completion.sh" ]] && . "$(brew --prefix)/etc/profile.d/bash_completion.sh"
+```
+
+fish picks up `vendor_completions.d` on its own.
+
+Running from a git checkout instead? The scripts live in
+[`completions/`](./completions):
+
+```bash
+source completions/brewmaster.bash                                                            # bash
+cp completions/brewmaster.zsh "$(brew --prefix)/share/zsh/site-functions/_brewmaster"        # zsh
+cp completions/brewmaster.fish (brew --prefix)/share/fish/vendor_completions.d/brewmaster.fish  # fish
+```
 
 ## Why brewmaster
 
@@ -105,11 +118,9 @@ brewmaster profile diff work safe
 brewmaster profile validate
 ```
 
-Interactive multi-select (requires `fzf`):
-
-```bash
-brewmaster --profile=work --interactive
-```
+Every upgrade run reviews its candidates before executing: with `fzf`, a
+picker where all candidates start checked (deselect what you don't want);
+without it, a table and a single `[y/N]`. `--dry-run` and `--yes` skip it.
 
 ## Snapshots & Rollback
 

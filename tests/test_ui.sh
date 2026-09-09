@@ -85,6 +85,12 @@ printf 'a|x\n' | ui_select none 'P > ' --delimiter='|' --with-nth=2 >/dev/null
 grep -qx -- "--delimiter=|" "$ARGS_LOG" && grep -qx -- "--with-nth=2" "$ARGS_LOG" \
   && ok || bad "extra fzf args passed through"
 
+# --- 8b. glyphs follow the locale: a check mark under UTF-8, ASCII otherwise ---
+LC_ALL=en_US.UTF-8 ui_select none 'P > ' < <(printf 'a\n') >/dev/null
+[ "$(arg_value marker)" = "✓ " ] && ok || bad "UTF-8 locale: marker is a check mark, got '$(arg_value marker)'"
+LC_ALL=C ui_select none 'P > ' < <(printf 'a\n') >/dev/null
+[ "$(arg_value marker)" = "x " ] && ok || bad "C locale: marker falls back to ASCII, got '$(arg_value marker)'"
+
 # --- 9. the probe runs once, then its cached answer is reused (also by
 #        subshells, which inherit it; a pick inside $(...) cannot warm the
 #        parent's cache, so the cache is warmed here by direct calls) ---

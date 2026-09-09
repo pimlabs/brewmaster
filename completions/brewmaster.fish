@@ -1,7 +1,7 @@
 # Fish completion for brewmaster.
 #
-# Manual install (until the Homebrew formula installs this automatically):
-#   cp completions/brewmaster.fish (brew --prefix)/share/fish/vendor_completions.d/brewmaster.fish
+# Installed by the Homebrew formula (fish_completion.install). From a git
+# checkout: cp completions/brewmaster.fish (brew --prefix)/share/fish/vendor_completions.d/brewmaster.fish
 
 function __fish_brewmaster_packages
     brew list --formula --cask 2>/dev/null
