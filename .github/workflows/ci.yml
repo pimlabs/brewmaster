@@ -11,6 +11,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Install fzf
+        run: brew install fzf
       - name: Run test suites
         run: |
           set -euo pipefail
