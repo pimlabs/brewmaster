@@ -13,7 +13,9 @@ pass=0; fail=0
 ok()  { pass=$((pass+1)); }
 bad() { fail=$((fail+1)); echo "FAIL: $1" >&2; }
 
-TMP="$(mktemp -d)"
+# Physical path: on macOS mktemp -d returns /var/folders/... which is a
+# symlink to /private/var/..., and the lookup normalizes with cd -P.
+TMP="$(cd -P "$(mktemp -d)" && pwd)"
 trap 'rm -rf "$TMP"' EXIT
 MOCK_BIN="$TMP/bin"; PREFIX="$TMP/prefix"; CHECKOUT="$TMP/checkout"; KEG="$TMP/keg"
 BREW_LOG="$TMP/brew.log"
@@ -134,9 +136,10 @@ out="$(completion_main)"; rc=$?
 restore_zsh; rm "$HOME/.zshrc"
 
 # --- 12. nothing under $HOME or the prefix is written by a status run ---
-before="$(find "$HOME" "$PREFIX" -type f | sort | xargs -I{} sh -c 'printf "%s %s\n" {} "$(wc -c < {})"')"
+inventory() { find "$HOME" "$PREFIX" -type f | sort | while IFS= read -r f; do printf '%s %s\n' "$f" "$(wc -c < "$f")"; done; }
+before="$(inventory)"
 completion_main >/dev/null; COMPLETION_TARGET=bash; completion_main >/dev/null; COMPLETION_TARGET=zsh
-after="$(find "$HOME" "$PREFIX" -type f | sort | xargs -I{} sh -c 'printf "%s %s\n" {} "$(wc -c < {})"')"
+after="$(inventory)"
 [ "$before" = "$after" ] && ok || bad "status run must not create or change any file"
 
 # --- 13. piped output carries no escape sequences ---
