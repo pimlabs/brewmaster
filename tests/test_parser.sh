@@ -22,6 +22,9 @@ case "$1" in
 esac
 MOCKEOF
 chmod +x "$MOCK/brew"
+# A mock fzf, so no case can ever reach the real picker: on a runner with
+# fzf installed, fzf blocks on /dev/tty and the suite hangs.
+printf '#!/usr/bin/env bash\nexit 130\n' > "$MOCK/fzf"; chmod +x "$MOCK/fzf"
 run() { PATH="$MOCK:$PATH" NO_COLOR=1 "$BM" "$@" 2>&1; }
 
 pass=0; fail=0
@@ -38,7 +41,7 @@ out="$(run -v snapshot list)"
 echo "$out" | grep -q "No snapshots found" && ok || bad "-v snapshot list runs snapshot list"
 
 # 3. value of a space-form flag is not a command
-out="$(run --level patch)"
+out="$(run --level patch -n)"
 echo "$out" | grep -q "Unknown command" && bad "--level patch: 'patch' must not be read as a command" || ok
 out="$(run --level patch snapshot list)"
 echo "$out" | grep -q "No snapshots found" && ok || bad "--level patch snapshot list runs snapshot list"
