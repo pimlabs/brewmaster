@@ -7,6 +7,23 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.12.1] — 2026-09-09
+
+### Fixed
+
+- The `upgrade` picker sometimes opened with nothing preselected
+  (`101/101 (0)`), so Enter upgraded only the row under the cursor — the
+  bug 0.12.0 set out to fix, back by another route. `fzf` fires its
+  `start` event before it has finished reading input, so `start:select-all`
+  raced the list load (measured on fzf 0.44.1: 4 of 6 runs preselected
+  everything, 2 selected nothing). `ui_select` now passes `--sync` with
+  that bind so `fzf` reads all input first (9/9); the input is already in
+  memory, so there is no visible delay
+- Picker rows were misaligned: the package name rides along as a
+  tab-separated first field, and `fzf` renders tabs to 8-column stops, so
+  each row shifted by its name's length. The field is now hidden
+  (`--with-nth=2`) and only the pre-padded row is shown
+
 ## [0.12.0] — 2026-09-06
 
 ### Added
