@@ -91,6 +91,21 @@ echo "$out" | grep -q '  - foo '  && ok || bad "dry-run: still shows candidate t
 echo "$out" | grep -q 'upgraded' && bad "dry-run: must not execute" || ok
 [ "$rc" -eq 0 ]                  && ok || bad "dry-run: exits 0"
 
+# 10b. every candidate row carries a cask/formula column, from `brew list --cask`
+MOCK2="$(mktemp -d)"
+cat > "$MOCK2/brew" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  list)     echo "somecask" ;;
+  outdated) printf 'foo (1.0.0) < 1.0.5\nsomecask (2.0.0) < 2.0.1\n' ;;
+esac
+EOF
+chmod +x "$MOCK2/brew"; ln -s "$(command -v jq)" "$MOCK2/jq"
+out="$(PATH="$MOCK2:$PATH" "$BM" upgrade --patch --dry-run 2>/dev/null)"
+echo "$out" | grep -qE '^  - foo +formula +1\.0\.0'      && ok || bad "kind column: foo is a formula"
+echo "$out" | grep -qE '^  - somecask +cask +2\.0\.0'    && ok || bad "kind column: somecask is a cask"
+rm -rf "$MOCK2"
+
 # 11. no fzf (run_no_fzf strips PATH down to MOCK + bare system dirs),
 #     review declined -> nothing upgraded, exits 0
 #     (prompt itself goes to stderr, so keep it merged for this assertion)
