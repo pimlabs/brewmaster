@@ -679,3 +679,79 @@ See `openspec/changes/archive/2026-09-09-m13-cli-spec/` for the
 proposal, design, specs, and tasks record.
 
 ---
+
+### Milestone 14 — CLI Hardening
+
+**Status:** `[x] done` **Branch:** `feat/cli-hardening` **Version:** `v0.15.0` **Depends on:** M11, M13
+
+#### Scope (as actually built)
+
+Every item left hanging after M13, none a feature:
+
+- **Parser: flags may precede the command.** `_hoist_command` in
+  `bin/brewmaster` moves the first non-flag word that names a command,
+  and the word right after it, to the front of the argument list; the
+  value of a space-form flag (`--level patch`, `--profile work`, ...) is
+  never taken as the command. `brewmaster -n snapshot list` is
+  `brewmaster snapshot list -n`; a package name after a flag is still a
+  package for the default command. The existing `case "$1"` block and
+  flag loop are untouched. `tests/test_parser.sh` (11 assertions, mock
+  brew) covers the forms; `--help` carries a one-line note.
+- **Completions follow the parser.** All three emitters offer commands
+  after a leading flag again (M13's mirror of the old parser is gone);
+  bash's command detection skips a space-form flag's value the way the
+  parser does, and completes `--flag=value` when readline splits the
+  word at `=` (`=` is in `COMP_WORDBREAKS`, so the old `--flag=*` arms
+  never fired; verified in an interactive bash under a pty).
+  `tests/test_completions.sh` gained a COMP_WORDS harness (26
+  assertions). Known gap: zsh dispatches `brewmaster <unknown-word> <TAB>`
+  to the default command and offers packages only.
+- **Picker render test.** `tests/test_ui_render.sh` runs the real fzf
+  under `script(1)` (BSD and util-linux forms) with the arguments
+  `upgrade` uses, flattens the typescript, and asserts the info line
+  `101/101 (101)`, one `->` column across rendered rows, the locale
+  marker on every row, and that Enter returns all 101 names in order;
+  plus the `preselect=none` case. Proven against a copy of `ui_select`
+  without `--sync` (fails on the race, 4 of 6 runs) and without
+  `--with-nth=2` (fails on alignment). fzf's light renderer swallows
+  keystrokes sent before it has asked the terminal for its cursor
+  position, so the feeder presses Enter every 1.5 s until the child
+  reports done. CI installs fzf. Skips only when fzf or a pty is
+  unavailable.
+- **Linux-clean baseline.** `tests/test_audit.sh` skips its 11 BSD-`date`
+  assertions with one stderr line where `date -v` fails (capability
+  check, not `uname`); `tests/test_cli.sh` runs the TTY test under either
+  `script` variant. `bash tests/run_all.sh` on Linux: 13 files, 0
+  failures.
+- **cleanup: one jq pass.** `_cleanup_build` splits the `brew info` cache
+  into per-formula object and facts files once; `_cleanup_formula_json`,
+  `_cleanup_facts`, `_cleanup_installed_date` and `why` read those.
+  Names, arguments, output and return codes unchanged; jq fallback when
+  the split dir is unavailable. 300 synthetic formulae: `cleanup_scan`
+  24.3 s → 12.1 s, jq reads of the cache 300 → 1. What remains is
+  `depgraph_is_safe` (two jq per package, in `depgraph.sh`) and
+  `find`/`stat`; the same split would apply there.
+
+#### Files
+
+- `bin/brewmaster`, `lib/brewmaster/core/help_data.sh`, `docs/brewmaster.1`, `tests/fixtures/help.txt`
+- `docs/gen-completions.sh`, `completions/brewmaster.{bash,zsh,fish}`
+- `lib/brewmaster/cleanup.sh`
+- `tests/test_parser.sh`, `tests/test_ui_render.sh` — new; `tests/test_completions.sh`,
+  `tests/test_cleanup.sh`, `tests/test_audit.sh`, `tests/test_cli.sh`
+- `.github/workflows/ci.yml` — `brew install fzf`
+
+#### Acceptance Criteria
+
+```
+brewmaster -n snapshot list            # == brewmaster snapshot list -n (test_parser 1)
+brewmaster --level patch snapshot list # patch is the level, snapshot list the command (test_parser 3)
+bash tests/test_ui_render.sh           # Passed: 12; fails on ui_select without --sync or --with-nth=2
+bash tests/run_all.sh                  # All 13 test file(s) passed, on Linux and on macOS CI
+# cleanup_scan, 300 formulae: 24.3 s -> 12.1 s; one jq read of the cache
+```
+
+See `openspec/changes/archive/2026-09-09-m14-cli-hardening/` for the
+proposal, design, specs, and tasks record.
+
+---

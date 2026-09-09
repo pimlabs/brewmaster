@@ -59,7 +59,7 @@ question in the same spirit. If it doesn't, it's out of scope.
 | M11 — Interactive Selection UX  | v0.12.0  | `[x] done`   |
 | M12 — Completion Guidance       | v0.13.0  | `[x] done`   |
 | M13 — CLI Spec & Completions    | v0.14.0  | `[x] done`   |
-| M14 — CLI Hardening             | v0.15.0  | `[ ] proposed` |
+| M14 — CLI Hardening             | v0.15.0  | `[x] done`   |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > M6–M9 shipped together in v0.10.0 (2026-08-11). The `(M6)`/`(M7)` labels on
@@ -110,61 +110,6 @@ To propose one, add a section here in the shape the archived milestones
 use (Status / Branch / Version / Depends on, Scope, Files, Acceptance
 Criteria) after the four-question test, then implement it through the
 OpenSpec cycle in `AGENTS.md`.
-
-### Milestone 14 — CLI Hardening
-
-**Status:** `[ ] proposed` **Branch:** `feat/cli-hardening` **Version:** `v0.15.0` **Depends on:** M11, M13
-
-#### Scope
-
-Every item left hanging after M13, none a feature, each a real cost:
-
-- **Parser: flags may precede the command.** `brewmaster -n snapshot list`
-  runs an upgrade of packages named `snapshot` and `list` today, because
-  the command is read only from `$1`. The first non-flag argument that
-  names a command becomes the command; the value of a space-form flag
-  (`--level patch`) never does; the sub-subcommand stays the word after
-  the command. Completions offer commands after a leading flag again, and
-  bash completes `--flag=value` when the shell splits at `=`.
-- **Picker render test.** The real fzf under a pseudo-terminal, asserting
-  the preselect count, row alignment, the marker glyph and the rows
-  returned on Enter — the two bugs users saw in v0.12.0 were exactly
-  these, and every existing test mocks fzf. CI installs fzf.
-- **Linux-clean test baseline.** BSD-`date` assertions skip with a
-  message where `date -v` is absent; the TTY test runs under either
-  `script(1)` variant. `bash tests/run_all.sh` reports 0 failures on
-  Linux.
-- **cleanup: one jq pass.** The `brew info` cache is split per formula
-  once instead of one `jq` over the whole cache per package (open since
-  M6). Contracts unchanged.
-
-Out of scope: any new command or flag; making the library itself run on
-Linux; rewriting history on `main`.
-
-#### Files
-
-- `bin/brewmaster` — `_hoist_command`; `lib/brewmaster/core/help_data.sh` — one note
-- `docs/gen-completions.sh`, `completions/` — regenerated
-- `lib/brewmaster/cleanup.sh`
-- `tests/test_parser.sh`, `tests/test_ui_render.sh` — new; `tests/test_completions.sh`,
-  `tests/test_cleanup.sh`, `tests/test_audit.sh`, `tests/test_cli.sh`
-- `.github/workflows/ci.yml` — `brew install fzf`
-
-#### Acceptance Criteria
-
-```
-brewmaster -n snapshot list            # == brewmaster snapshot list -n
-brewmaster --level patch snapshot list # patch is the level, snapshot list the command
-bash tests/test_ui_render.sh           # runs fzf in a pty; fails on a copy of ui_select without --sync or --with-nth=2
-bash tests/run_all.sh                  # 0 failures on Linux and on macOS CI
-# cleanup_scan over a 300-formula cache: jq no longer dominates (timing in the as-built note)
-```
-
-See `openspec/changes/m14-cli-hardening/` for the proposal, design, specs,
-and tasks.
-
----
-
 
 Completed milestones' as-built notes live in
 [`docs/MILESTONES.md`](docs/MILESTONES.md); the frozen M0–M5 contracts
