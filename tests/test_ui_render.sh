@@ -133,7 +133,10 @@ feed_keys() {
 # Return: script's status, 124 when the watchdog fired
 pty_run() {
   local ts="$1" done_flag="$2"; shift 2
-  local pid i cmd
+  local pid pgid i cmd rc
+  # Job control gives the pipeline its own process group, so the watchdog
+  # can kill feeder, script(1) and the fzf behind the pty together.
+  set -m
   if script --version >/dev/null 2>&1; then
     cmd="$(printf '%q ' "$@")"
     feed_keys "$done_flag" | script -q -c "$cmd" /dev/null > "$ts" 2>&1 &
@@ -141,16 +144,25 @@ pty_run() {
     feed_keys "$done_flag" | script -q /dev/null "$@" > "$ts" 2>&1 &
   fi
   pid=$!
-  for ((i = 0; i < 90; i++)); do
+  pgid="$(jobs -p | tail -n 1)"
+  set +m
+  echo "render: pty run started (script pid $pid, pgid ${pgid:-?})" >&2
+  for ((i = 0; i < 60; i++)); do
     kill -0 "$pid" 2>/dev/null || break
     sleep 0.5
   done
   if kill -0 "$pid" 2>/dev/null; then
-    kill "$pid" 2>/dev/null; sleep 0.5; kill -9 "$pid" 2>/dev/null
+    echo "render: watchdog fired after 30s, killing process group" >&2
+    [ -n "$pgid" ] && kill -TERM -- "-$pgid" 2>/dev/null
+    kill -TERM "$pid" 2>/dev/null; sleep 0.5
+    [ -n "$pgid" ] && kill -KILL -- "-$pgid" 2>/dev/null
+    kill -KILL "$pid" 2>/dev/null
     wait "$pid" 2>/dev/null
     return 124
   fi
-  wait "$pid"
+  wait "$pid"; rc=$?
+  echo "render: pty run finished rc=$rc, typescript $(wc -c < "$ts" | tr -d ' ') bytes" >&2
+  return "$rc"
 }
 
 # flatten "$typescript" — turn fzf's --height output into one line per

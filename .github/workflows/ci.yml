@@ -9,9 +9,13 @@ on:
 jobs:
   test:
     runs-on: macos-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - name: Install fzf
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
         run: brew install fzf
       - name: Run test suites
         run: |
