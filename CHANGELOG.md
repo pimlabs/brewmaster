@@ -7,6 +7,32 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.15.0] — 2026-09-09
+
+### Added
+
+- Flags may come before the command: `brewmaster -n snapshot list` is
+  `brewmaster snapshot list -n`. The first non-flag word that names a
+  command is the command; the value of a space-form flag
+  (`--level patch`) never is. Shell completions offer commands in the
+  same places, and bash now completes `--flag=value` in a real shell
+  (readline splits the word at `=`; the old arms never fired)
+- `tests/test_ui_render.sh` runs the real fzf in a pseudo-terminal with
+  the arguments `upgrade` uses and checks what the user sees: the
+  preselect count, row alignment, the marker, and the rows returned on
+  Enter. The two picker bugs of v0.12.0 would have failed it. CI installs
+  fzf so it runs there
+
+### Changed
+
+- `cleanup` (and `why`, `bloat`) read the `brew info` cache once: it is
+  split per formula on build instead of running one `jq` over the whole
+  cache for every package. Output unchanged; a 300-formula scan takes
+  about half the time
+- `bash tests/run_all.sh` runs clean on Linux: the assertions that need
+  BSD `date -v` are skipped with a message where it is absent, and the
+  TTY test runs under either `script(1)` variant
+
 ## [0.14.0] — 2026-09-09
 
 ### Added
