@@ -348,5 +348,79 @@ grep -Eq '^--cellar (imagemagick|watchman|openssl|git|wget|nosuch)$' "$BREW_CALL
 cellar_calls="$(grep -c '^--cellar$' "$BREW_CALL_LOG_PATH" || true)"
 [ "$cellar_calls" -eq 1 ] && ok || bad "cellar root fetched exactly once, got $cellar_calls calls"
 
+# --- 29. _cleanup_formula_json: the same object a jq scan of the raw cache
+#         yields for a present formula (exactly one JSON value), nothing for
+#         an absent one, and a name that is not a plain path segment ---
+want="$(jq -c --arg n openssl '.formulae[] | select(.name == $n)' "$INFO_JSON_FILE")"
+got="$(_cleanup_formula_json openssl | jq -c .)"
+[ -n "$got" ] && [ "$got" = "$want" ] && ok || bad "formula_json openssl: expected '$want', got '$got'"
+[ "$(_cleanup_formula_json openssl | jq -s 'length')" -eq 1 ] && ok || bad "formula_json openssl: exactly one JSON value"
+[ -z "$(_cleanup_formula_json nosuch)" ]      && ok || bad "formula_json nosuch: expected nothing"
+[ -z "$(_cleanup_formula_json '../openssl')" ] && ok || bad "formula_json ../openssl: never escapes the split dir"
+[ -z "$(_cleanup_formula_json '.')" ]          && ok || bad "formula_json '.': expected nothing"
+
+# --- 30. _cleanup_formula_facts: cache-derived TSV for a present formula,
+#         nothing for an absent one ---
+expected="$(printf '2\ttrue\tfalse\t%s' "$OPENSSL_INSTALLED")"
+f="$(_cleanup_formula_facts openssl)"
+[ "$f" = "$expected" ] && ok || bad "formula_facts openssl: expected '$expected', got '$f'"
+expected="$(printf '1\tfalse\ttrue\t%s' "$IMAGEMAGICK_INSTALLED")"
+f="$(_cleanup_formula_facts imagemagick)"
+[ "$f" = "$expected" ] && ok || bad "formula_facts imagemagick: expected '$expected', got '$f'"
+[ -z "$(_cleanup_formula_facts nosuch)" ] && ok || bad "formula_facts nosuch: expected nothing"
+
+# --- 31. Fallback: with no split dir the same answers come from jq on the
+#         cache (mktemp failure must degrade, not break) ---
+got="$(CLEANUP_SPLIT_DIR=""; _cleanup_formula_json openssl | jq -c .)"
+[ "$got" = "$want" ] && ok || bad "formula_json fallback (no split): expected '$want', got '$got'"
+f="$(CLEANUP_SPLIT_DIR=""; _cleanup_formula_facts openssl)"
+expected="$(printf '2\ttrue\tfalse\t%s' "$OPENSSL_INSTALLED")"
+[ "$f" = "$expected" ] && ok || bad "formula_facts fallback (no split): expected '$expected', got '$f'"
+f="$(CLEANUP_SPLIT_DIR=""; _cleanup_facts imagemagick)"
+g="$(_cleanup_facts imagemagick)"
+[ -n "$g" ] && [ "$f" = "$g" ] && ok || bad "facts fallback == split path: '$f' vs '$g'"
+
+# --- 32. The split is built once per process: across _cleanup_build +
+#         cleanup_scan + why + cleanup_report exactly ONE jq reads
+#         CLEANUP_CACHE, the dir holds one file per cached formula, and both
+#         the dir and the cache are gone when the process exits. Runs in a
+#         fresh bash (own $$, own EXIT trap) behind a jq wrapper that logs
+#         one line per invocation. ---
+JQ_WRAP="$(mktemp -d)"
+JQ_CALL_LOG="$(mktemp)"
+REAL_JQ="$(command -v jq)"
+export JQ_CALL_LOG REAL_JQ
+cat > "$JQ_WRAP/jq" <<'JQEOF'
+#!/usr/bin/env bash
+{ printf '%q ' "$@"; echo; } >> "$JQ_CALL_LOG"
+exec "$REAL_JQ" "$@"
+JQEOF
+chmod +x "$JQ_WRAP/jq"
+cat > "$JQ_WRAP/probe.sh" <<'PROBEEOF'
+#!/usr/bin/env bash
+set -uo pipefail
+DRY_RUN=false; INTERACTIVE=false; CLEANUP_FORCE=false; SNAP_FORCE=false; VERBOSE=false
+logv() { :; }
+for m in core/semver.sh core/outdated.sh core/ui.sh audit.sh depgraph.sh snapshot.sh cleanup.sh; do
+  source "$LIB/$m"
+done
+ui_color_init
+depgraph_build
+_cleanup_build
+rows="$(cleanup_scan 2>/dev/null)"
+why git >/dev/null
+cleanup_report "$rows" >/dev/null
+printf '%s\t%s\t%s\n' "$CLEANUP_CACHE" "$CLEANUP_SPLIT_DIR" \
+  "$(ls "$CLEANUP_SPLIT_DIR/json" | wc -l | tr -d ' ')"
+PROBEEOF
+probe="$(LIB="$LIB" PATH="$JQ_WRAP:$PATH" bash "$JQ_WRAP/probe.sh")"
+IFS=$'\t' read -r p_cache p_split p_files <<<"$probe"
+[ "${p_files:-0}" -eq 7 ] && ok || bad "split: one file per cached formula (7), got '${p_files:-}'"
+cache_reads="$(grep -c -- "$p_cache" "$JQ_CALL_LOG" || true)"
+[ "$cache_reads" -eq 1 ] && ok || bad "split built once: expected exactly 1 jq read of CLEANUP_CACHE, got $cache_reads"
+[ -n "$p_split" ] && [ ! -e "$p_split" ] && ok || bad "split dir removed at exit: '$p_split'"
+[ -n "$p_cache" ] && [ ! -e "$p_cache" ] && ok || bad "cache removed at exit: '$p_cache'"
+rm -rf "$JQ_WRAP" "$JQ_CALL_LOG"
+
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))

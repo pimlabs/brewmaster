@@ -3,28 +3,70 @@
 # Sourced by bin/brewmaster after depgraph.sh (uses depgraph_build/depgraph_is_safe)
 # and snapshot.sh (uses snapshot_save/SNAP_DIR). Formulae only (casks out of scope).
 # Globals read:  DRY_RUN INTERACTIVE CLEANUP_FORCE
-# Globals set:   CLEANUP_CACHE (by _cleanup_build)
+# Globals set:   CLEANUP_CACHE CLEANUP_SPLIT_DIR (by _cleanup_build)
 
 # Cache path — set by _cleanup_build; empty until then.
 CLEANUP_CACHE=""
 
+# Per-formula split of the cache — set by _cleanup_build; empty until then, and
+# left empty if the directory could not be created (lookups then fall back to
+# scanning CLEANUP_CACHE with jq). Layout, one file per installed formula:
+#   $CLEANUP_SPLIT_DIR/json/<name>   compact JSON object (see _cleanup_formula_json)
+#   $CLEANUP_SPLIT_DIR/facts/<name>  TSV (see _cleanup_formula_facts)
+CLEANUP_SPLIT_DIR=""
+
 # Cellar root path — set by _cleanup_cellar_root; empty until then.
 CLEANUP_CELLAR_ROOT=""
 
-# _cleanup_build — fetch `brew info --json=v2 --installed` once into a cache file.
-# Sets a combined EXIT trap covering both this cache and DEPGRAPH_CACHE (must be
-# called after depgraph_build — all public functions here need depgraph too).
+# _cleanup_build — fetch `brew info --json=v2 --installed` once into a cache file
+# and split it into per-formula files (_cleanup_split) with ONE jq pass.
+# Sets a combined EXIT trap covering this cache, the split directory and
+# DEPGRAPH_CACHE (must be called after depgraph_build — all public functions
+# here need depgraph too).
 # Idempotent: a no-op if the cache is already built (avoids re-registering the
 # EXIT trap when called from within a command-substitution subshell, e.g. via
 # cleanup_scan inside `$(cleanup_scan)`, which would delete the cache file the
 # moment that subshell exits — before the caller can read it).
+# Sets: CLEANUP_CACHE CLEANUP_SPLIT_DIR
 # Return: 0
 _cleanup_build() {
   [[ -n "$CLEANUP_CACHE" && -f "$CLEANUP_CACHE" ]] && return 0
   CLEANUP_CACHE="/tmp/brewmaster-cleanup-$$.json"
   brew info --json=v2 --installed 2>/dev/null > "$CLEANUP_CACHE" || true
+  CLEANUP_SPLIT_DIR="$(mktemp -d "/tmp/brewmaster-cleanup-$$.XXXXXX" 2>/dev/null)" || CLEANUP_SPLIT_DIR=""
   # shellcheck disable=SC2064 # expand now: locals are gone by EXIT
-  trap "rm -f '${CLEANUP_CACHE}' '${DEPGRAPH_CACHE:-}'" EXIT
+  trap "rm -rf '${CLEANUP_CACHE}' '${CLEANUP_SPLIT_DIR}' '${DEPGRAPH_CACHE:-}'" EXIT
+  _cleanup_split
+}
+
+# _cleanup_split — split CLEANUP_CACHE into per-formula files under
+# CLEANUP_SPLIT_DIR with a single jq pass, so every later per-package lookup is
+# a file read instead of a jq parse of the whole multi-megabyte cache (the
+# bottleneck M6 left open: ~3 jq startups per package, each walking every
+# formula). One jq emits, per formula, one TAB-separated line:
+#   name  vcount  pinned  on_request  install_epoch  <compact JSON object>
+# which is written to json/<name> and facts/<name> (see CLEANUP_SPLIT_DIR).
+# Formula names are used as path segments — they match [A-Za-z0-9@._+-], but an
+# empty name, one containing '/' or one starting with '.' is skipped anyway.
+# No-op if CLEANUP_SPLIT_DIR is empty (mktemp failed): callers fall back to jq.
+# Args:   none
+# Stdout: none
+# Return: 0
+_cleanup_split() {
+  [[ -n "$CLEANUP_SPLIT_DIR" && -d "$CLEANUP_SPLIT_DIR" ]] || return 0
+  local t0=$SECONDS n=0 name vcount pinned on_request epoch json
+  mkdir -p "$CLEANUP_SPLIT_DIR/json" "$CLEANUP_SPLIT_DIR/facts" 2>/dev/null || return 0
+  while IFS=$'\t' read -r name vcount pinned on_request epoch json; do
+    case "$name" in ''|*/*|.*) continue ;; esac
+    printf '%s\n' "$json" > "$CLEANUP_SPLIT_DIR/json/$name"
+    printf '%s\t%s\t%s\t%s\n' "$vcount" "$pinned" "$on_request" "$epoch" \
+      > "$CLEANUP_SPLIT_DIR/facts/$name"
+    n=$((n+1))
+  done < <(jq -r '.formulae[]? | select((.name|type) == "string")
+      | "\(.name)\t\(.installed|length)\t\(.pinned // false)\t"
+        + "\((([(.installed // [])[].installed_on_request]|any) // false))\t"
+        + "\(.installed[0].time // 0)\t\(tojson)"' "$CLEANUP_CACHE" 2>/dev/null)
+  logv "[timing] cleanup cache split into $n formula files in $((SECONDS - t0))s"
 }
 
 # _cleanup_cellar_root — fetch the Homebrew Cellar root path (`brew --cellar`,
@@ -42,8 +84,57 @@ _cleanup_cellar_root() {
 
 # _cleanup_formula_json "$pkg" — print this formula's object from the cache, or
 # nothing if not present.
+# Reads json/<pkg> from the per-formula split (a file read, no jq); falls back
+# to a jq scan of the whole cache only if the split could not be built.
+# Args:   $1 formula name
+# Stdout: the formula's JSON object (compact), or nothing
+# Return: 0
 _cleanup_formula_json() {
-  jq --arg n "$1" '.formulae[] | select(.name == $n)' "$CLEANUP_CACHE" 2>/dev/null
+  local pkg="$1"
+  if [[ -n "$CLEANUP_SPLIT_DIR" && -d "$CLEANUP_SPLIT_DIR/json" ]]; then
+    _cleanup_split_read "$CLEANUP_SPLIT_DIR/json/$pkg"
+    return 0
+  fi
+  jq --arg n "$pkg" '.formulae[] | select(.name == $n)' "$CLEANUP_CACHE" 2>/dev/null
+}
+
+# _cleanup_split_read "$file" — print the one line held by a per-formula split
+# file, or nothing if it does not exist. A builtin read, not `cat`: this runs
+# once or twice per package in a scan, so it must not fork. The basename is a
+# formula name used as a path segment: empty, '/'-containing or '.'-leading
+# names print nothing (the split never writes such files — see _cleanup_split).
+# Args:   $1 path of a file under CLEANUP_SPLIT_DIR
+# Stdout: the file's single line, or nothing
+# Return: 0
+_cleanup_split_read() {
+  local file="$1" line=""
+  case "${file##*/}" in ''|.*) return 0 ;; esac
+  [[ -f "$file" ]] || return 0
+  IFS= read -r line < "$file" || true
+  [[ -n "$line" ]] && printf '%s\n' "$line"
+  return 0
+}
+
+# _cleanup_formula_facts "$pkg" — the cache-derived facts of one formula, or
+# nothing if not present. Single place that knows which fields cleanup reads
+# from `brew info`; _cleanup_facts, _cleanup_installed_date and why all go
+# through it so a scan never re-parses the cache per package.
+# Reads facts/<pkg> from the per-formula split (a file read, no jq); falls back
+# to one jq over _cleanup_formula_json only if the split could not be built.
+# Args:   $1 formula name
+# Stdout (TSV): vcount  pinned(true/false)  on_request(true/false)  install_epoch
+#               — or nothing if the formula is not in the cache
+# Return: 0
+_cleanup_formula_facts() {
+  local pkg="$1"
+  if [[ -n "$CLEANUP_SPLIT_DIR" && -d "$CLEANUP_SPLIT_DIR/facts" ]]; then
+    _cleanup_split_read "$CLEANUP_SPLIT_DIR/facts/$pkg"
+    return 0
+  fi
+  _cleanup_formula_json "$pkg" | jq -r \
+    '[(.installed|length), (.pinned // false),
+      (([(.installed // [])[].installed_on_request]|any) // false),
+      (.installed[0].time // 0)] | @tsv' 2>/dev/null
 }
 
 # _cleanup_last_access "$pkg"
@@ -76,24 +167,23 @@ _cleanup_days_since() {
 }
 
 # _cleanup_facts "$pkg"
-# Single per-package gather point — exactly ONE _cleanup_last_access (brew list +
-# stat) and ONE depgraph_is_safe call. Both cleanup_score and cleanup_scan go
-# through this, so a full scan never repeats the I/O-heavy atime lookup.
+# Single per-package gather point — exactly ONE _cleanup_last_access (find +
+# stat) and ONE depgraph_is_safe call, plus a file read of the per-formula
+# facts (no jq). Both cleanup_score and cleanup_scan go through this, so a
+# full scan never repeats the I/O-heavy atime lookup.
 # stdout (TSV): vcount  pinned(true/false)  on_request(true/false)  is_safe(0/1)
 #               install_epoch  last_access_epoch
 _cleanup_facts() {
-  local pkg="$1" json safe=1 last
-  json="$(_cleanup_formula_json "$pkg")"
+  local pkg="$1" facts safe=1 last vcount pinned on_request epoch
+  facts="$(_cleanup_formula_facts "$pkg")"
   depgraph_is_safe "$pkg" >/dev/null || safe=0
   last="$(_cleanup_last_access "$pkg")"
-  if [[ -z "$json" ]]; then
+  if [[ -z "$facts" ]]; then
     printf '0\tfalse\tfalse\t%s\t0\t%s\n' "$safe" "$last"
     return 0
   fi
-  echo "$json" | jq -r --arg safe "$safe" --arg last "$last" \
-    '[(.installed|length), (.pinned // false),
-      (([.installed[].installed_on_request]|any)//false),
-      $safe, (.installed[0].time // 0), $last] | @tsv'
+  IFS=$'\t' read -r vcount pinned on_request epoch <<<"$facts"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$vcount" "$pinned" "$on_request" "$safe" "$epoch" "$last"
 }
 
 # cleanup_score_from_facts vcount pinned on_request is_safe install_epoch last_access_epoch
@@ -192,8 +282,9 @@ cleanup_execute() {
 
 # _cleanup_installed_date "$pkg" -> "YYYY-MM-DD" or "unknown"
 _cleanup_installed_date() {
-  local epoch
-  epoch="$(_cleanup_formula_json "$1" | jq -r '.installed[0].time // 0')"
+  local facts vcount pinned on_request epoch=""
+  facts="$(_cleanup_formula_facts "$1")"
+  [[ -n "$facts" ]] && IFS=$'\t' read -r vcount pinned on_request epoch <<<"$facts"
   [[ -z "$epoch" || "$epoch" == "0" ]] && { echo "unknown"; return; }
   date -r "$epoch" +%Y-%m-%d 2>/dev/null || echo "unknown"
 }
@@ -227,17 +318,16 @@ why() {
     return 1
   fi
 
-  local json; json="$(_cleanup_formula_json "$pkg")"
-  if [[ -z "$json" ]]; then
+  local facts; facts="$(_cleanup_formula_facts "$pkg")"
+  if [[ -z "$facts" ]]; then
     echo "Error: $pkg is not installed (or not a formula)." >&2
     return 1
   fi
 
   echo "Package: $pkg"
 
-  local on_request epoch installed_str
-  on_request="$(echo "$json" | jq -r '([.installed[].installed_on_request]|any)//false')"
-  epoch="$(echo "$json" | jq -r '.installed[0].time // 0')"
+  local vcount pinned on_request epoch installed_str
+  IFS=$'\t' read -r vcount pinned on_request epoch <<<"$facts"
   if [[ "$epoch" == "0" ]]; then
     installed_str="an unknown date"
   else
@@ -272,7 +362,6 @@ why() {
     echo "  Last access: ~${days} day(s) ago."
   fi
 
-  local vcount; vcount="$(echo "$json" | jq '.installed | length')"
   (( vcount > 1 )) && echo "  Versions installed: ${vcount} (older version(s) may be removable)."
 }
 
@@ -327,7 +416,7 @@ cleanup_main() {
     fi
     local tmpdir; tmpdir="$(mktemp -d)"
     # shellcheck disable=SC2064 # expand now: locals are gone by EXIT
-    trap "rm -rf '$tmpdir'; rm -f '${CLEANUP_CACHE}' '${DEPGRAPH_CACHE:-}'" EXIT
+    trap "rm -rf '$tmpdir' '${CLEANUP_CACHE}' '${CLEANUP_SPLIT_DIR}' '${DEPGRAPH_CACHE:-}'" EXIT
 
     local total; total="$(printf '%s\n' "$rows" | grep -c .)"
     local i=0 name category score reason
