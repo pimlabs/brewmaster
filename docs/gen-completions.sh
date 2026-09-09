@@ -484,12 +484,18 @@ MIDDLE
 # Stdout: the escaped string
 # Return: 0
 _emit_zsh_q() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\'/\'\\\'\'}"
-  s="${s//\[/\\[}"
-  s="${s//\]/\\]}"
-  printf '%s\n' "$s"
+  # Character loop for the same reason as _emit_fish_quote: bash 3.2 and
+  # 4.3+ disagree on backslashes in a double-quoted ${s//pat/rep}.
+  local s="$1" out="" c i
+  for ((i = 0; i < ${#s}; i++)); do
+    c="${s:$i:1}"
+    case "$c" in
+      \')    out="$out'\\''" ;;
+      \\|\[|\]) out="$out\\$c" ;;
+      *)     out="$out$c" ;;
+    esac
+  done
+  printf '%s\n' "$out"
 }
 
 # _emit_zsh_desc — turn a spec description into a zsh completion
@@ -819,10 +825,19 @@ HEADER
 # Stdout: '<escaped text>'
 # Return: 0
 _emit_fish_quote() {
-  local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\'/\\\'}"
-  printf "'%s'" "$s"
+  # Character loop rather than ${s//pat/rep}: how backslashes in a
+  # double-quoted replacement are treated changed across bash versions
+  # (3.2 on stock macOS differs from 4.3+), and the output must be
+  # byte-identical everywhere.
+  local s="$1" out="" c i
+  for ((i = 0; i < ${#s}; i++)); do
+    c="${s:$i:1}"
+    case "$c" in
+      \\|\') out="$out\\$c" ;;
+      *)     out="$out$c" ;;
+    esac
+  done
+  printf "'%s'" "$out"
   return 0
 }
 

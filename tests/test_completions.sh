@@ -22,7 +22,9 @@ source "$ROOT/lib/brewmaster/core/cli_spec.sh"
 # --- 1. drift: generator output equals each committed script ---
 for sh in bash zsh fish; do
   if diff <(bash "$GEN" "$sh") "$ROOT/completions/brewmaster.$sh" >/dev/null; then ok
-  else bad "completions/brewmaster.$sh has drifted from the spec; regenerate with: docs/gen-completions.sh $sh > completions/brewmaster.$sh"
+  else
+    bad "completions/brewmaster.$sh has drifted from the spec; regenerate with: docs/gen-completions.sh $sh > completions/brewmaster.$sh"
+    diff <(bash "$GEN" "$sh") "$ROOT/completions/brewmaster.$sh" | head -20 >&2
   fi
 done
 
