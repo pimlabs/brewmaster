@@ -52,6 +52,8 @@ AUDIT_ACTION=""
 AUDIT_SINCE=""
 AUDIT_FORMAT="table"
 HELP_TARGET=""
+COMPLETION_SHELL=""   # `completion <shell>`: print that shell's script
+COMPLETION_TARGET=""  # --shell=NAME: report for NAME instead of $SHELL
 
 # _help_style_vars — set B/R/U/UR to tput sequences, or "" when styling
 # should be suppressed (non-TTY, NO_COLOR set, or no tput available).
@@ -249,6 +251,10 @@ if [[ $# -gt 0 && "$1" != -* ]]; then
                 PROFILE_SUBCMD="$1"; shift
               fi ;;
     cleanup|why|bloat|log|report) COMMAND="$1"; shift ;;
+    completion) COMMAND="$1"; shift
+              if [[ $# -gt 0 && "$1" != -* ]]; then
+                COMPLETION_SHELL="$1"; shift
+              fi ;;
     help)     COMMAND="$1"; shift
               if [[ $# -gt 0 && "$1" != -* ]]; then
                 HELP_TARGET="$1"; shift
@@ -281,6 +287,8 @@ while [[ $# -gt 0 ]]; do
     --profile=*)         PROFILE_NAME="${1#*=}" ;;
     --profile)           shift; PROFILE_NAME="${1-}" ;;
     --interactive|-i)    INTERACTIVE=true ;;
+    --shell=*)           COMPLETION_TARGET="${1#*=}" ;;
+    --shell)             shift; COMPLETION_TARGET="${1-}" ;;
     --package=*)         AUDIT_PACKAGE="${1#*=}" ;;
     --package)           shift; AUDIT_PACKAGE="${1-}" ;;
     --action=*)          AUDIT_ACTION="${1#*=}" ;;
@@ -370,6 +378,7 @@ case "$COMMAND" in
   bloat) cleanup_bloat ;;
   log) audit_query ;;
   report) audit_report ;;
+  completion) completion_main ;;
   help)
     if [[ -n "$HELP_TARGET" ]]; then
       help_command "$HELP_TARGET" || exit 1
