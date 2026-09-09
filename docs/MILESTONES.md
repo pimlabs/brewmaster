@@ -489,6 +489,9 @@ Deviations from the proposal, all recorded in `design.md`:
   fine on 0.44.1, so this is taste, not compatibility; flip in
   `ui_select` at no cost. Flipped in **v0.12.2**: `✓ `/`▸ ` under UTF-8
   locales, `x `/`> ` otherwise, after `x` proved unintuitive in use.
+  **v0.13.1** adds a cask/formula column after the name in every
+  candidate row (picker, `--dry-run` plan, fallback table, execution
+  listing): "formula" muted, "cask" in the default color.
 - Task 0.1 (confirm on macOS that `ctrl-a` was not select-all before)
   was superseded rather than run: `ui_select` binds `ctrl-a` explicitly,
   so the old default no longer matters.

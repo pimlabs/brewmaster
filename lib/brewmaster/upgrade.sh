@@ -110,7 +110,10 @@ run_upgrade() {
   # are sized to the widest value so the rows align like every other
   # table in the CLI; the risk score (already carried in upgrade_meta,
   # never shown before) becomes a trailing column when --check-deps is on.
-  local i name_w=0 old_w=0 new_w=0 m_old m_new m_kind m_score
+  # A cask/formula column follows the name: "formula" is muted and "cask"
+  # left in the default color, so the minority stands out by contrast
+  # without borrowing a semantic (risk/cleanup) color.
+  local i name_w=0 old_w=0 new_w=0 m_old m_new m_kind m_score m_type
   for i in "${!upgrade_list[@]}"; do
     IFS='|' read -r m_old m_new m_kind m_score <<<"${upgrade_meta[$i]}"
     (( ${#upgrade_list[$i]} > name_w )) && name_w=${#upgrade_list[$i]}
@@ -119,13 +122,18 @@ run_upgrade() {
   done
   for i in "${!upgrade_list[@]}"; do
     IFS='|' read -r m_old m_new m_kind m_score <<<"${upgrade_meta[$i]}"
+    if is_cask "${upgrade_list[$i]}"; then
+      m_type="$(ui_colorize 7 "" "cask")"
+    else
+      m_type="$(ui_colorize 7 "$COLOR_MUTED" "formula")"
+    fi
     if [[ -n "$m_score" ]]; then
-      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "$old_w" "$m_old" \
-        "" "->" "$new_w" "$m_new" "" "[${m_kind}]" \
+      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "" "$m_type" \
+        "$old_w" "$m_old" "" "->" "$new_w" "$m_new" "" "[${m_kind}]" \
         "" "$(ui_colorize "" "$(_depgraph_risk_color "$m_score")" "risk:${m_score}")")")
     else
-      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "$old_w" "$m_old" \
-        "" "->" "$new_w" "$m_new" "" "[${m_kind}]")")
+      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "" "$m_type" \
+        "$old_w" "$m_old" "" "->" "$new_w" "$m_new" "" "[${m_kind}]")")
     fi
   done
 
