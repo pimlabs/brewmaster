@@ -181,7 +181,11 @@ flatten() {
   awk '
     BEGIN { esc = sprintf("%c", 27); csi = esc "\\[[^@-~]*[@-~]" }
     {
-      n = split($0, segs, "\r")
+      # A cursor-down move starts a new screen line just like a carriage
+      # return does; some builds draw rows as ESC[nB ESC[3G text with no \r.
+      line = $0
+      gsub(esc "\\[[0-9]*B", "\r", line)
+      n = split(line, segs, "\r")
       for (s = 1; s <= n; s++) {
         seg = segs[s]; col = 0
         while (match(seg, "^" esc "\\[[0-9;?]*[@-~]")) {
@@ -226,6 +230,10 @@ info="$(last_info "$SCREEN_ALL")"
 rows_seen=0; cols=""; tabs=0
 while IFS= read -r line; do
   rows_seen=$((rows_seen+1))
+  # Measure "->" from the marker, not from the screen edge: what precedes
+  # the marker (border, prompt, gutter) depends on the fzf build; what
+  # follows it is the row the picker was given.
+  case "$line" in *"${MARKER}"*) line="${line#*"${MARKER}"}" ;; esac
   prefix="${line%%->*}"
   cols+="${#prefix}"$'\n'
   case "$line" in *$'\t'*) tabs=$((tabs+1)) ;; esac
@@ -243,8 +251,9 @@ fi
 [ "$tabs" -eq 0 ]        && ok || bad "$tabs rendered row(s) contain a literal tab"
 [ "$distinct" -eq 1 ]    && ok || bad "'->' sits in $distinct different columns across rendered rows (want 1): $(printf '%s' "$cols" | sort -u | tr '\n' ' ')"
 
-# (c) the selection marker is drawn on every rendered row
-marked="$(grep -- '->' "$SCREEN_ALL" | grep -cE "^ *(${POINTER} |  )${MARKER} ")"
+# (c) the selection marker is drawn on every rendered row: it precedes the
+# name, whatever fzf draws in the pointer/gutter column ("▸", "▌", blank)
+marked="$(grep -- '->' "$SCREEN_ALL" | grep -cE "^[^p]*${MARKER} p[0-9]")"
 [ "$marked" -eq "$rows_seen" ] && ok || bad "marker '${MARKER}' on $marked of $rows_seen rendered rows"
 
 # (d) Enter confirmed the whole batch, names in input order, exit 0
@@ -266,7 +275,7 @@ case "$info" in
   "101/101 (0)"|"101/101") ok ;;
   *) bad "preselect=none info line: want '101/101 (0)' (or bare '101/101'), got '${info:-<none>}'" ;;
 esac
-marked="$(grep -- '->' "$SCREEN_NONE" | grep -cE "^ *(${POINTER} |  )${MARKER} ")"
+marked="$(grep -- '->' "$SCREEN_NONE" | grep -cE "^[^p]*${MARKER} p[0-9]")"
 [ "$marked" -eq 0 ] && ok || bad "preselect=none: marker drawn on $marked row(s)"
 
 # Enter with nothing selected returns the current row only: the first
