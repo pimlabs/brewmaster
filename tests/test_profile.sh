@@ -299,6 +299,8 @@ echo "$out" | grep -q "upgraded git"        && ok || bad "review gate fzf: selec
 echo "$out" | grep -q "upgraded jq"         && bad "review gate fzf: unselected candidate (jq) must not be upgraded" || ok
 grep -q -- '^--bind=start:select-all,' "$FZF_ARGS_LOG" && ok || bad "review gate fzf: every candidate preselected (start:select-all)"
 grep -- '^--bind=' "$FZF_ARGS_LOG" | grep -q 'ctrl-a:select-all' && ok || bad "review gate fzf: ctrl-a bound to select-all"
+grep -qx -- '--with-nth=2' "$FZF_ARGS_LOG" && ok || bad "review gate fzf: tab-separated name field hidden (--with-nth=2)"
+grep -qx -- '--sync' "$FZF_ARGS_LOG"       && ok || bad "review gate fzf: --sync so preselect-all sees the full list"
 
 export PATH="$OLD_PATH"
 rm -rf "$MOCK_BIN4"; rm -f "$FZF_ARGS_LOG"

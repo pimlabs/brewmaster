@@ -70,12 +70,15 @@ marker="$(arg_value marker)"; pointer="$(arg_value pointer)"
 # --- 5. inline picker: a --height is passed ---
 [ -n "$(arg_value height)" ] && ok || bad "--height passed (inline, not full screen)"
 
-# --- 6. preselect=all with a capable fzf binds start:select-all ---
+# --- 6. preselect=all with a capable fzf binds start:select-all, with --sync so
+#        the bind fires after the input is fully read (start alone is a race) ---
 arg_value bind | grep -q '^start:select-all,' && ok || bad "preselect=all: start:select-all bound"
+grep -qx -- '--sync' "$ARGS_LOG" && ok || bad "preselect=all: --sync passed alongside start:select-all"
 
 # --- 7. preselect=none never binds start: ---
 printf 'alpha\nbeta\n' | ui_select none 'P > ' >/dev/null
 arg_value bind | grep -q 'start:' && bad "preselect=none: must not bind start:" || ok
+grep -qx -- '--sync' "$ARGS_LOG" && bad "preselect=none: must not pass --sync" || ok
 
 # --- 8. extra fzf args pass through verbatim ---
 printf 'a|x\n' | ui_select none 'P > ' --delimiter='|' --with-nth=2 >/dev/null
@@ -108,6 +111,7 @@ unset _UI_FZF_START
 sel="$(printf 'alpha\nbeta\n' | ui_select all 'P > ')"; rc=$?
 [ "$rc" -eq 0 ] && [ "$sel" = "alpha" ] && ok || bad "probe failure: picker still works (rc=$rc sel='$sel')"
 arg_value bind | grep -q 'start:' && bad "probe failure: start: must not be bound" || ok
+grep -qx -- '--sync' "$ARGS_LOG" && bad "probe failure: --sync must not be passed without start:" || ok
 arg_value bind | grep -q 'ctrl-a:select-all' && ok || bad "probe failure: ctrl-a still bound (header stays honest)"
 
 # --- 11. missing fzf: returns 1 without exiting, nothing on stdout ---

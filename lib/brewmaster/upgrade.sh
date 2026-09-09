@@ -161,8 +161,13 @@ run_upgrade() {
       # Opt-out: every candidate starts selected, so Enter with nothing
       # deselected upgrades the whole batch — the same semantics as the
       # no-fzf [y/N] below.
+      # The name rides along as a tab-separated first field for cut -f1
+      # below, but fzf renders a tab to the next 8-column stop, which
+      # would shift every row by its name's length. --with-nth=2 shows
+      # only the pre-padded row; fzf still returns the whole line.
       local selected
-      selected="$(printf '%s\n' "${fzf_display[@]}" | ui_select all 'Upgrade > ' | cut -f1)"
+      selected="$(printf '%s\n' "${fzf_display[@]}" | \
+        ui_select all 'Upgrade > ' --delimiter=$'\t' --with-nth=2 | cut -f1)"
       # One newline-framed haystack and one substring test per candidate:
       # no subprocess inside the loop, and no associative array, which
       # macOS's stock bash 3.2 lacks.
