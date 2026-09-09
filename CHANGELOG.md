@@ -7,6 +7,16 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.13.1] — 2026-09-09
+
+### Added
+
+- Every upgrade candidate row — the picker, the `--dry-run` plan, the
+  no-`fzf` table and the "Upgrading N package(s)" listing — shows whether
+  the package is a cask or a formula, right after the name. "formula" is
+  muted and "cask" left in the default color, so casks stand out by
+  contrast
+
 ## [0.13.0] — 2026-09-09
 
 ### Added
