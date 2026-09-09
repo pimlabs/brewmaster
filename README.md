@@ -20,6 +20,15 @@ brew install brewmaster
 them into Homebrew's completion directories, along with the man page
 (`man brewmaster`). Nothing to copy.
 
+Not sure whether your shell loads them? Ask brewmaster. It reads your rc
+files and never writes to them:
+
+```bash
+brewmaster completion                 # status for your shell, and the snippet to add if it isn't loaded
+brewmaster completion --shell=bash    # same, for another shell
+source <(brewmaster completion zsh)   # or print the script, e.g. from a git checkout
+```
+
 If completion doesn't work, your shell isn't loading Homebrew's
 completions yet:
 
