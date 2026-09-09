@@ -689,7 +689,7 @@ brewmaster completion --shell=bash     # same, for another shell
 brewmaster completion zsh | head -1    # "#compdef brewmaster"
 SHELL=/bin/tcsh brewmaster completion  # error naming bash, zsh, fish; exit 1
 # Nothing under $HOME or brew --prefix is written by any of the above (asserted by test 12)
-# All 10 test files pass (323 assertions); shellcheck clean on bin/brewmaster and lib/brewmaster/**/*.sh
+# All 10 test files pass (330 assertions); shellcheck clean on bin/brewmaster and lib/brewmaster/**/*.sh
 ```
 
 See `openspec/changes/archive/2026-09-09-m12-completion-guidance/` for
