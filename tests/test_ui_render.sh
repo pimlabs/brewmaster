@@ -94,6 +94,7 @@ cat > "$CHILD" <<CHILDEOF
 set -uo pipefail
 source "$LIB/core/ui.sh"
 stty cols "\$COLUMNS" rows "\$LINES" 2>/dev/null || true
+stty size > "\$3.stty" 2>&1 || true
 ui_select "\$1" 'Upgrade > ' --delimiter=\$'\\t' --with-nth=2 < "\$2" | cut -f1 > "\$3"
 echo "\${PIPESTATUS[0]}" > "\$3.rc"
 touch "\$4"
@@ -230,7 +231,15 @@ while IFS= read -r line; do
   case "$line" in *$'\t'*) tabs=$((tabs+1)) ;; esac
 done < <(grep -- '->' "$SCREEN_ALL")
 distinct="$(printf '%s' "$cols" | sort -u | grep -c .)"
-[ "$rows_seen" -ge 10 ]  && ok || bad "expected at least 10 rendered rows, saw $rows_seen"
+if [ "$rows_seen" -ge 10 ]; then ok; else
+  bad "expected at least 10 rendered rows, saw $rows_seen"
+  # Diagnostics for a renderer this flattener does not understand yet:
+  # the flattened screen, then the raw typescript with escapes visible.
+  { echo "--- flattened screen (all) ---"; cat "$SCREEN_ALL"
+    echo "--- raw typescript (all), escaped, first 6000 bytes ---"
+    head -c 6000 "$TS_ALL" | od -An -c | head -150
+    echo "--- stty inside the pty: $(cat "$SEL_ALL.stty" 2>/dev/null || echo unknown) ---"; } >&2
+fi
 [ "$tabs" -eq 0 ]        && ok || bad "$tabs rendered row(s) contain a literal tab"
 [ "$distinct" -eq 1 ]    && ok || bad "'->' sits in $distinct different columns across rendered rows (want 1): $(printf '%s' "$cols" | sort -u | tr '\n' ' ')"
 
