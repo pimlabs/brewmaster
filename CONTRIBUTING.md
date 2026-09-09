@@ -111,6 +111,25 @@ Then:
 - Merging that commit tags and releases `vX.Y.0` (see Tagging & Releases);
   no manual tag push needed
 
+### Adding a command or flag
+
+The CLI surface has one source of truth, `lib/brewmaster/core/cli_spec.sh`,
+and `tests/test_completions.sh` holds three consumers to it. To add a
+command, sub-subcommand or flag:
+
+1. Add the record to `cli_spec.sh` (grammar in its header).
+2. Parse it in `bin/brewmaster` (subcommand case or flag case) and
+   dispatch it.
+3. Describe it in `lib/brewmaster/core/help_data.sh`, then regenerate the
+   man page and fixtures: `docs/gen-man.sh > docs/brewmaster.1`,
+   `NO_COLOR=1 bin/brewmaster --help > tests/fixtures/help.txt`.
+4. Regenerate the completions: for each of bash, zsh, fish,
+   `docs/gen-completions.sh <shell> > completions/brewmaster.<shell>`.
+   Never edit the files under `completions/` by hand.
+5. `bash tests/run_all.sh` — `test_completions.sh` names anything you
+   missed (a flag the parser has but the spec lacks, a spec flag help
+   never mentions, a stale generated file).
+
 ---
 
 ## Commit Message Convention

@@ -23,12 +23,14 @@ cross-machine sync tool, or dev environment manager.
 bin/brewmaster           ← entry point: arg parsing, dispatch, --help rendering
 lib/brewmaster/*.sh      ← command modules (upgrade, snapshot, depgraph, profile,
                             cleanup, audit, completion): they call brew and do I/O
-lib/brewmaster/core/     ← pure helpers (semver, outdated, help_data, ui): no brew
-                            calls, no prompts — sourced by the modules and by tests
-completions/             ← bash/zsh/fish completion scripts (installed by the tap formula)
+lib/brewmaster/core/     ← pure helpers (semver, outdated, help_data, ui, cli_spec):
+                            no brew calls, no prompts — sourced by the modules and by tests
+completions/             ← GENERATED bash/zsh/fish completions (installed by the tap
+                            formula); regenerate with docs/gen-completions.sh, never hand-edit
 config/                  ← profiles.toml.example
 docs/                    ← ARCHIVE_ROADMAP.md (frozen M0–M5 contracts), MILESTONES.md
-                            (as-built notes, M6 onward), brewmaster.1 + gen-man.sh
+                            (as-built notes, M6 onward), brewmaster.1 + gen-man.sh,
+                            gen-completions.sh (completions from core/cli_spec.sh)
 tests/                   ← test_*.sh (source + assert), run_all.sh, fixtures/
 openspec/                ← OpenSpec specs and change proposals (do not edit manually)
 .claude/                 ← OpenSpec's /opsx:* commands and skills (tool-managed)
@@ -39,6 +41,13 @@ The `core/` split is a rule, not a habit: a function that runs `brew` or
 prompts the user belongs in a module under `lib/brewmaster/`; `core/`
 stays pure so tests can source it without mocks (this is why
 `upgrade.sh` moved out of `core/` in v0.7.0).
+
+The CLI surface (commands, sub-subcommands, positionals, flags) is declared
+once in `lib/brewmaster/core/cli_spec.sh`. `bin/brewmaster` parses it,
+`help_data.sh` describes it, `docs/gen-completions.sh` generates the three
+completion scripts from it, and `tests/test_completions.sh` fails when any
+of the four disagree. The recipe for adding a command or flag is in
+`CONTRIBUTING.md`.
 
 ---
 
