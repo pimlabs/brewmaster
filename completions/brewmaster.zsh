@@ -35,6 +35,7 @@ _brewmaster_commands() {
     'bloat:summary of installed packages and cleanup candidates'
     'log:show recent audit log entries'
     'report:machine health summary'
+    'completion:completion status for your shell, or print a completion script'
   )
   _describe -t commands 'command' commands
   _brewmaster_packages
@@ -232,6 +233,13 @@ _brewmaster() {
           _arguments \
             '(-v --verbose)'{-v,--verbose}'[verbose output]' \
             '(-h --help)'{-h,--help}'[show this help]'
+          ;;
+        completion)
+          _arguments \
+            '--shell=[report for this shell instead of $SHELL]:shell:(bash zsh fish)' \
+            '(-v --verbose)'{-v,--verbose}'[verbose output]' \
+            '(-h --help)'{-h,--help}'[show this help]' \
+            '1:shell:(bash zsh fish)'
           ;;
         *) _brewmaster_upgrade ;;
       esac
