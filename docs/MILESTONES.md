@@ -607,3 +607,69 @@ See `openspec/changes/archive/2026-09-09-m12-completion-guidance/` for
 the proposal, design, specs, and tasks record.
 
 ---
+
+### Milestone 13 — CLI Spec & Generated Completions
+
+**Status:** `[x] done` **Branch:** `feat/cli-spec` **Version:** `v0.14.0` **Depends on:** M7, M9, M12
+
+#### Scope (as actually built)
+
+The CLI surface was written down in five places: the subcommand and flag
+parsers in `bin/brewmaster`, the shared help table in `help_data.sh`,
+and three hand-written completion scripts. M12 proved the failure mode:
+it added the `completion` subcommand to zsh and fish but the bash script
+shipped in v0.13.x without it, and no test noticed. M13 gives
+completions the treatment `gen-man.sh` + `test_docs.sh` already gave
+the man page:
+
+- `lib/brewmaster/core/cli_spec.sh` — `_cli_spec` prints the CLI surface
+  as `|`-separated records (10 commands, 11 sub-subcommands, 10
+  positionals, 28 flags) with the grammar in its header: `cmd`, `sub`,
+  `arg`, `flag`; value kinds boolean / enum / `@package` / `@profile` /
+  free placeholder; `excl=` groups; `default` marks `upgrade`.
+- `docs/gen-completions.sh <bash|zsh|fish>` — loads the spec into
+  parallel arrays (bash 3.2, no associative arrays), then one emitter
+  per shell. Only the dynamic-completer preambles (`brew list`,
+  `profiles.toml`, snapshot refs) are fixed strings; every command,
+  flag and value comes from the spec. Output is deterministic and each
+  file carries a "generated, do not edit" header.
+- `completions/brewmaster.{bash,zsh,fish}` — regenerated; now artifacts.
+- `tests/test_completions.sh` (16 assertions) — drift for all three
+  scripts; determinism; every spec command, sub-subcommand and flag is
+  parsed by `bin/brewmaster` and, the other direction, every flag and
+  subcommand the parser accepts is in the spec; every spec flag and
+  command appears in `help_data.sh`; syntax check under each shell that
+  is installed.
+
+Built as proposed. Bash and fish output complete the same words in the
+same contexts as the hand-written scripts (plus the missing `completion`
+command in bash). Zsh gained what the spec made free: every flag has its
+description, the global `-v/-V/-h` flags are offered in every context,
+`upgrade`'s flags are offered at top level (it is the default command),
+and `_arguments -C` gets `-A '-*'` so an unknown flag no longer swallows
+the sub-subcommand slot. Nothing that any completion offered before was
+removed.
+
+#### Files
+
+- `lib/brewmaster/core/cli_spec.sh` — new (pure data)
+- `docs/gen-completions.sh` — new
+- `completions/brewmaster.{bash,zsh,fish}` — regenerated
+- `tests/test_completions.sh`, `tests/run_all.sh` — new test file listed
+- `CONTRIBUTING.md` — "Adding a command or flag" recipe
+- `AGENTS.md` — layout: `cli_spec.sh`, `gen-completions.sh`, generated `completions/`
+
+#### Acceptance Criteria
+
+```
+for s in bash zsh fish; do docs/gen-completions.sh $s | diff - completions/brewmaster.$s; done   # empty
+# add a flag to bin/brewmaster only → test_completions.sh fails naming it; same for a spec-only flag
+# add a spec flag with no help text → test_completions.sh fails naming it
+# All 11 test files pass (348 assertions on macOS); shellcheck clean on bin/brewmaster,
+# lib/brewmaster/**/*.sh and docs/gen-completions.sh
+```
+
+See `openspec/changes/archive/2026-09-09-m13-cli-spec/` for the
+proposal, design, specs, and tasks record.
+
+---

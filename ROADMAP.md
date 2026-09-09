@@ -58,7 +58,7 @@ question in the same spirit. If it doesn't, it's out of scope.
 | M10 — Colorized Help            | v0.11.0  | `[x] done`   |
 | M11 — Interactive Selection UX  | v0.12.0  | `[x] done`   |
 | M12 — Completion Guidance       | v0.13.0  | `[x] done`   |
-| M13 — CLI Spec & Completions    | v0.14.0  | `[ ] proposed` |
+| M13 — CLI Spec & Completions    | v0.14.0  | `[x] done`   |
 
 > Shell completions (bash/zsh) shipped as a patch in v0.6.1 — not a formal milestone.
 > M6–M9 shipped together in v0.10.0 (2026-08-11). The `(M6)`/`(M7)` labels on
@@ -109,55 +109,6 @@ To propose one, add a section here in the shape the archived milestones
 use (Status / Branch / Version / Depends on, Scope, Files, Acceptance
 Criteria) after the four-question test, then implement it through the
 OpenSpec cycle in `AGENTS.md`.
-
-### Milestone 13 — CLI Spec & Generated Completions
-
-**Status:** `[ ] proposed` **Branch:** `feat/cli-spec` **Version:** `v0.14.0` **Depends on:** M7, M9, M12
-
-#### Scope
-
-The CLI surface was written down in five places: the subcommand and flag
-parsers in `bin/brewmaster`, the shared help table in `help_data.sh`,
-and three hand-written completion scripts, one per shell dialect. M12
-added one subcommand and had to touch all five, with no test to catch a
-miss. `help_data.sh` + `gen-man.sh` + `test_docs.sh` already solved this
-shape for the man page; completions get the same treatment:
-
-- `lib/brewmaster/core/cli_spec.sh` — one machine-readable record set for
-  every command, sub-subcommand, positional and flag (descriptions,
-  value kind, exclusion groups, the default command).
-- `docs/gen-completions.sh <bash|zsh|fish>` — generates the completion
-  scripts from the spec; `completions/` becomes generated artifacts with
-  the same completions in the same contexts as the hand-written ones.
-- `tests/test_completions.sh` — drift (generator output equals each
-  committed script), spec ↔ parser both directions, spec ↔ help, syntax
-  where the shell is installed.
-
-Out of scope: generating the help prose from the spec, dynamic
-(`__complete`) completion, changing what any completion offers.
-
-#### Files
-
-- `lib/brewmaster/core/cli_spec.sh` — new (pure data)
-- `docs/gen-completions.sh` — new
-- `completions/brewmaster.{bash,zsh,fish}` — regenerated
-- `tests/test_completions.sh` — new
-- `CONTRIBUTING.md`, `AGENTS.md` — the "adding a command or flag" recipe; layout
-
-#### Acceptance Criteria
-
-```
-docs/gen-completions.sh zsh | diff - completions/brewmaster.zsh   # empty, for all three shells
-# add a flag to bin/brewmaster only → tests/test_completions.sh fails naming it; same for a spec-only flag
-# add a spec flag with no help text → tests/test_completions.sh fails naming it
-# All test files pass; shellcheck clean on bin/brewmaster, lib/brewmaster/**/*.sh, docs/gen-completions.sh
-```
-
-See `openspec/changes/m13-cli-spec/` for the proposal, design, specs, and
-tasks.
-
----
-
 
 Completed milestones' as-built notes live in
 [`docs/MILESTONES.md`](docs/MILESTONES.md); the frozen M0–M5 contracts
