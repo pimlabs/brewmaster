@@ -7,6 +7,21 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.12.2] — 2026-09-09
+
+### Changed
+
+- The picker marks selected rows with `✓` (pointer `▸`) under UTF-8
+  locales, falling back to `x`/`>` elsewhere: `x` read as "excluded", a
+  check mark reads as a checklist. fzf caps markers at 2 display cells,
+  so a literal `[✓]` checkbox is not expressible
+- README's Shell Completions section and the completion script headers
+  no longer claim the tap formula skips completions; it has installed
+  bash, zsh and fish completions and the man page for several releases.
+  The section now gives the one-line shell snippet for when completion
+  does not load, and the profiles section describes the default review
+  gate instead of the long-retired `--interactive` multi-select
+
 ## [0.12.1] — 2026-09-09
 
 ### Fixed
