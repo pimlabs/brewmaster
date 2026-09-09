@@ -1,7 +1,8 @@
 # AGENTS.md — brewmaster
 
 > Read `PHILOSOPHY.md` before proposing or implementing any feature.
-> Read `ROADMAP.md` for current milestone scope and upcoming work.
+> Read `ROADMAP.md` for current milestone scope and upcoming work, and
+> `docs/MILESTONES.md` for how past milestones actually shipped.
 > Read `docs/ARCHIVE_ROADMAP.md` before touching any M0–M5 code.
 
 ---
@@ -19,13 +20,25 @@ cross-machine sync tool, or dev environment manager.
 ## Project Structure
 
 ```
-bin/brewmaster          ← entry point, command dispatch
-lib/brewmaster/core/    ← modular logic (one file per concern)
-config/                 ← default config templates
-tests/                  ← test functions (source + assert pattern)
-docs/                   ← ARCHIVE_ROADMAP.md and other references
-openspec/               ← OpenSpec change proposals (do not edit manually)
+bin/brewmaster           ← entry point: arg parsing, dispatch, --help rendering
+lib/brewmaster/*.sh      ← command modules (upgrade, snapshot, depgraph, profile,
+                            cleanup, audit, completion): they call brew and do I/O
+lib/brewmaster/core/     ← pure helpers (semver, outdated, help_data, ui): no brew
+                            calls, no prompts — sourced by the modules and by tests
+completions/             ← bash/zsh/fish completion scripts (installed by the tap formula)
+config/                  ← profiles.toml.example
+docs/                    ← ARCHIVE_ROADMAP.md (frozen M0–M5 contracts), MILESTONES.md
+                            (as-built notes, M6 onward), brewmaster.1 + gen-man.sh
+tests/                   ← test_*.sh (source + assert), run_all.sh, fixtures/
+openspec/                ← OpenSpec specs and change proposals (do not edit manually)
+.claude/                 ← OpenSpec's /opsx:* commands and skills (tool-managed)
+.github/                 ← CI (shellcheck + tests on macOS), release.yml, templates
 ```
+
+The `core/` split is a rule, not a habit: a function that runs `brew` or
+prompts the user belongs in a module under `lib/brewmaster/`; `core/`
+stays pure so tests can source it without mocks (this is why
+`upgrade.sh` moved out of `core/` in v0.7.0).
 
 ---
 

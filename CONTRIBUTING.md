@@ -157,21 +157,21 @@ type(scope): short description
 
 | Scope         | Area                                        |
 | ------------- | ------------------------------------------- |
-| `core`        | `lib/brewmaster/core/` — semver, outdated   |
+| `core`        | `lib/brewmaster/core/` — semver, outdated, help_data (pure helpers) |
 | `semver`      | Semver-specific logic                       |
+| `upgrade`     | `lib/brewmaster/upgrade.sh`                 |
 | `snapshot`    | `lib/brewmaster/snapshot.sh`                |
 | `depgraph`    | `lib/brewmaster/depgraph.sh`                |
 | `profile`     | `lib/brewmaster/profile.sh`                 |
 | `cleanup`     | `lib/brewmaster/cleanup.sh`                 |
 | `audit`       | `lib/brewmaster/audit.sh`                   |
-| `cache`       | `lib/brewmaster/core/cache.sh`              |
 | `ui`          | `lib/brewmaster/core/ui.sh`                 |
-| `checklist`   | `lib/brewmaster/checklist.sh`               |
+| `completion`  | `lib/brewmaster/completion.sh`              |
 | `cli`         | `bin/brewmaster` — entry point, arg parsing |
-| `formula`     | `Formula/brewmaster.rb`                     |
+| `formula`     | `Formula/brewmaster.rb` in pimlabs/homebrew-tap (updated by release.yml) |
 | `completions` | Shell completions                           |
 | `test`        | Test files in `tests/`                      |
-| `docs`        | README, ROADMAP, CONTRIBUTING, CHANGELOG    |
+| `docs`        | README, ROADMAP, PHILOSOPHY, CONTRIBUTING, CHANGELOG, docs/ |
 | `ci`          | GitHub Actions workflows                    |
 | `deps`        | Dependency changes                          |
 
