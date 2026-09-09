@@ -178,7 +178,7 @@ _help_render_line() {
 # that drives usage(), styled through the same helpers. A group that
 # covers several command tokens (e.g. SNAPSHOT & ROLLBACK) is printed in
 # full regardless of which of its tokens was requested.
-# Args:   $1 command name (upgrade|snapshot|deps|profile|cleanup|why|bloat|log|report)
+# Args:   $1 command name (upgrade|snapshot|deps|profile|cleanup|why|bloat|log|report|completion)
 # Stdout: the matching group's block, styled; nothing on an unknown command
 # Return: 0 on a known command, 1 (with a stderr message) on an unknown one
 help_command() {
@@ -190,6 +190,7 @@ help_command() {
     profile)          group="PROFILES" ;;
     cleanup|why|bloat) group="CLEANUP & INTENT" ;;
     log|report)       group="AUDIT LOG & REPORTS" ;;
+    completion)       group="SHELL COMPLETION" ;;
     *)
       echo "Unknown command: $target" >&2
       return 1
