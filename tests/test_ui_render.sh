@@ -285,5 +285,22 @@ rc="$(cat "$SEL_NONE.rc" 2>/dev/null || echo none)"
 [ "$(cat "$SEL_NONE" 2>/dev/null)" = "${names[0]}" ] && ok \
   || bad "preselect=none: want only '${names[0]}', got '$(tr '\n' ' ' < "$SEL_NONE" 2>/dev/null)'"
 
+# --- the selected-row tint (fzf 0.52 and newer) ---
+# Only fzf's own selected-fg can put a plain green run in these
+# typescripts: the fixture colours the type column dim and leaves cask
+# plain, and ui_color_init stays empty because stdout is not a tty. An
+# older fzf is never handed the option, so the assertions run only where
+# the capability probe says the colour names exist.
+if _ui_fzf_supports_selected_color; then
+  tint_all="$(LC_ALL=C grep -aoE $'\033\\[;?32m' "$TS_ALL"  | wc -l | tr -d ' ')"
+  tint_none="$(LC_ALL=C grep -aoE $'\033\\[;?32m' "$TS_NONE" | wc -l | tr -d ' ')"
+  [ "${tint_all:-0}" -ge 10 ] && ok \
+    || bad "preselect=all: selected rows carry no tint (green runs: ${tint_all:-0})"
+  [ "${tint_none:-0}" -eq 0 ] && ok \
+    || bad "preselect=none: rows tinted with nothing selected (green runs: ${tint_none:-0})"
+else
+  echo "render: this fzf has no selected-* colours, tint assertions skipped" >&2
+fi
+
 echo "Passed: $pass, Failed: $fail"
 [ "$fail" -eq 0 ]

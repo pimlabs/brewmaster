@@ -158,6 +158,27 @@ _ui_fzf_supports_start() {
   return "$_UI_FZF_START"
 }
 
+# _ui_fzf_supports_selected_color — probe once whether the running fzf
+# accepts the `selected-fg` colour name, caching the answer in
+# _UI_FZF_SELCOLOR. fzf gained colour names for the multi-selected rows
+# in 0.52; before that the marker glyph was the only thing on a row that
+# changed with selection. Same shape as _ui_fzf_supports_start: exit 2 is
+# fzf's option parse error and the only result meaning "unsupported".
+# The probe must pass a NAME:value pair — fzf splits the spec on ":" and
+# fails a spec with no value before it ever looks the name up, so a bare
+# `selected-fg` would report unsupported on every build, new ones
+# included.
+# Args:   none
+# Stdout: none (sets global _UI_FZF_SELCOLOR: 0 supported, 1 unsupported)
+# Return: 0 if supported, 1 otherwise
+_ui_fzf_supports_selected_color() {
+  if [[ -n "${_UI_FZF_SELCOLOR:-}" ]]; then return "$_UI_FZF_SELCOLOR"; fi
+  local rc=0
+  printf '' | fzf --color=selected-fg:green --filter='' >/dev/null 2>&1 || rc=$?
+  if (( rc == 2 )); then _UI_FZF_SELCOLOR=1; else _UI_FZF_SELCOLOR=0; fi
+  return "$_UI_FZF_SELCOLOR"
+}
+
 # ui_select "$preselect" "$prompt" [extra fzf args...]
 # The one fzf multi-select in the CLI. Reads candidate lines on stdin and
 # prints the confirmed selection on stdout, one line each. Every option
@@ -207,8 +228,18 @@ ui_select() {
   case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
     *[Uu][Tt][Ff]-8*|*[Uu][Tt][Ff]8*) pointer='▸ ' marker='✓ ' ;;
   esac
-  # shellcheck disable=SC2086 # ${sync:+...} is either --sync or no argument at all
+  # The marker says which rows are selected one glyph at a time; tinting
+  # the whole row says it at a glance. A named colour follows the
+  # terminal's own palette, so it stays legible on a light theme as well
+  # as a dark one, and green reads alongside the check mark rather than
+  # against it. Older fzf builds simply keep the marker on its own.
+  local selcolor=""
+  if _ui_fzf_supports_selected_color; then
+    selcolor="--color=selected-fg:green"
+  fi
+  # shellcheck disable=SC2086 # each ${x:+...} is one argument or none at all
   fzf --multi --ansi --height=60% --layout=reverse --border \
       --pointer="$pointer" --marker="$marker" ${sync:+"$sync"} \
+      ${selcolor:+"$selcolor"} \
       --bind="$binds" --header="$header" --prompt="$prompt" "$@"
 }
