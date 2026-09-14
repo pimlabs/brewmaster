@@ -7,6 +7,26 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.15.1] — 2026-09-14
+
+### Changed
+
+- The picker tints the whole selected row green where the running `fzf`
+  supports it, so a screen of a hundred outdated packages reads at a
+  glance instead of one check mark at a time. The marker and pointer are
+  unchanged. `fzf` gained colour names for the multi-selected rows in
+  0.52; an older build rejects the option outright rather than ignoring
+  it, so support is decided by a capability probe — the same way
+  `start:select-all` already is — and an older `fzf` keeps the marker on
+  its own. The probe passes a `NAME:value` pair on purpose: `fzf` splits
+  a colour spec on `:` and fails a spec with no value before it looks
+  the name up, so a bare `selected-fg` would report unsupported on every
+  build. The colour is named rather than a palette index so it follows
+  the terminal's own theme and stays legible on light backgrounds
+- `tests/test_ui_render.sh` asserts the tint against the real `fzf`,
+  skipping where the colour names do not exist: 12 assertions on
+  `fzf 0.44.1`, 14 on 0.65.1 and on CI
+
 ## [0.15.0] — 2026-09-09
 
 ### Added
