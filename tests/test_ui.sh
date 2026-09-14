@@ -99,12 +99,17 @@ _ui_fzf_supports_start; rc1=$?
 _ui_fzf_supports_start; rc2=$?
 [ "$rc1" -eq 0 ] && [ "$rc2" -eq 0 ] && [ "$(calls)" -eq 1 ] \
   && ok || bad "probe cached: expected 1 fzf call across two checks, got $(calls) (rc $rc1/$rc2)"
+unset _UI_FZF_SELCOLOR; : > "$CALLS_LOG"
+_ui_fzf_supports_selected_color; rc1=$?
+_ui_fzf_supports_selected_color; rc2=$?
+[ "$rc1" -eq 0 ] && [ "$rc2" -eq 0 ] && [ "$(calls)" -eq 1 ] \
+  && ok || bad "colour probe cached: expected 1 fzf call across two checks, got $(calls) (rc $rc1/$rc2)"
 : > "$CALLS_LOG"
 printf 'alpha\n' | ui_select all 'P > ' >/dev/null
 [ "$(calls)" -eq 1 ] && ok || bad "warm cache: a pick makes exactly 1 fzf call, got $(calls)"
-unset _UI_FZF_START; : > "$CALLS_LOG"
+unset _UI_FZF_START _UI_FZF_SELCOLOR; : > "$CALLS_LOG"
 printf 'alpha\n' | ui_select all 'P > ' >/dev/null
-[ "$(calls)" -eq 2 ] && ok || bad "cold cache: a pick makes 2 fzf calls (probe + picker), got $(calls)"
+[ "$(calls)" -eq 3 ] && ok || bad "cold cache: a pick makes 3 fzf calls (2 probes + picker), got $(calls)"
 
 # --- 10. fzf that rejects start: (exit 2 on the probe) degrades to no preselect ---
 cat > "$MOCK_BIN/fzf" <<'FZFEOF'
@@ -113,7 +118,7 @@ for a in "$@"; do [[ "$a" == --filter* ]] && exit 2; done
 printf '%s\n' "$@" > "$ARGS_LOG"
 head -n1
 FZFEOF
-unset _UI_FZF_START
+unset _UI_FZF_START _UI_FZF_SELCOLOR
 sel="$(printf 'alpha\nbeta\n' | ui_select all 'P > ')"; rc=$?
 [ "$rc" -eq 0 ] && [ "$sel" = "alpha" ] && ok || bad "probe failure: picker still works (rc=$rc sel='$sel')"
 arg_value bind | grep -q 'start:' && bad "probe failure: start: must not be bound" || ok
@@ -128,6 +133,36 @@ ui_select all 'P > ' < <(printf 'alpha\n') > "$OUT_FILE"; rc=$?
 unset -f command
 [ "$rc" -eq 1 ]        && ok || bad "missing fzf: returns 1 (got $rc)"
 [ ! -s "$OUT_FILE" ]   && ok || bad "missing fzf: writes no selection"
+
+# --- 12. the selected-row tint follows the capability probe: fzf gained
+#         the selected-* colour names in 0.52, and an older build rejects
+#         the whole option rather than ignoring it, so it must not be sent ---
+cat > "$MOCK_BIN/fzf" <<'FZFEOF'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$ARGS_LOG"
+head -n1
+FZFEOF
+unset _UI_FZF_START _UI_FZF_SELCOLOR
+printf 'alpha\n' | ui_select none 'P > ' >/dev/null
+[ "$(arg_value color)" = "selected-fg:green" ] \
+  && ok || bad "capable fzf: selected rows tinted, got '$(arg_value color)'"
+
+# A build that rejects the colour name answers the probe with exit 2.
+cat > "$MOCK_BIN/fzf" <<'FZFEOF'
+#!/usr/bin/env bash
+has_filter=0; has_selcolor=0
+for a in "$@"; do
+  [[ "$a" == --filter* ]] && has_filter=1
+  [[ "$a" == --color=selected-* ]] && has_selcolor=1
+done
+(( has_filter && has_selcolor )) && exit 2
+printf '%s\n' "$@" > "$ARGS_LOG"
+head -n1
+FZFEOF
+unset _UI_FZF_START _UI_FZF_SELCOLOR
+sel="$(printf 'alpha\nbeta\n' | ui_select none 'P > ')"
+grep -q -- '--color=' "$ARGS_LOG" && bad "old fzf: --color must not be passed" || ok
+[ "$sel" = "alpha" ] && ok || bad "old fzf: picker still works, got '$sel'"
 
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))
