@@ -17,6 +17,80 @@ _in_list() {
   return 1
 }
 
+# _upgrade_deps_build — record, for every candidate, the dependencies its
+# upgrade would newly install. Homebrew 6 asks for confirmation before an
+# upgrade whose plan pulls in packages the user did not name, and
+# run_upgrade suppresses that prompt (the review gate is the one place a
+# selection is confirmed), so the gate has to disclose what the prompt
+# would have. One batched `brew deps` covers the whole list: `--for-each`
+# prints one `name: dep ...` line per named formula, where a bare
+# `--missing` over several names would print their intersection instead.
+# Casks are left out — `brew deps` accepts them but answers with the
+# formulae a cask declares, which is not what it would install — and
+# `--formula` keeps a name that is both from resolving to the cask.
+# Args:    none (reads upgrade_list, CASK_SET)
+# Stdout:  none (sets UPGRADE_DEPS_MAP: "\nname\tdep ...\n" per package
+#          that has missing dependencies, empty when none do)
+# Return:  0 always — no dependency data is a thinner gate, never a failure
+UPGRADE_DEPS_MAP=""
+_upgrade_deps_build() {
+  UPGRADE_DEPS_MAP=""
+  local -a formulae=()
+  local i n
+  for i in "${!upgrade_list[@]}"; do
+    n="${upgrade_list[$i]}"
+    is_cask "$n" || formulae+=("$n")
+  done
+  (( ${#formulae[@]} == 0 )) && return 0
+  local line name deps
+  # `brew deps --missing` warns on stderr that these are declared rather
+  # than runtime dependencies; HOMEBREW_NO_ENV_HINTS silences the hint and
+  # the redirect covers the rest.
+  while IFS= read -r line; do
+    [[ "$line" == *:* ]] || continue
+    name="${line%%:*}"
+    deps="${line#"$name":}"
+    deps="${deps# }"
+    [[ -n "$deps" ]] || continue
+    UPGRADE_DEPS_MAP+=$'\n'"${name}"$'\t'"${deps}"
+  done < <(HOMEBREW_NO_ENV_HINTS=1 brew deps --missing --for-each --formula \
+             "${formulae[@]}" 2>/dev/null || true)
+  [[ -n "$UPGRADE_DEPS_MAP" ]] && UPGRADE_DEPS_MAP+=$'\n'
+  return 0
+}
+
+# _upgrade_deps_for — the dependencies one package would newly install.
+# A parameter-expansion lookup into the framed map, so the row builder
+# costs no subprocess and needs no associative array (bash 3.2).
+# Args:    $1 package name
+# Stdout:  space-separated dependency names, empty when there are none
+# Return:  0
+_upgrade_deps_for() {
+  local rest="${UPGRADE_DEPS_MAP#*$'\n'"$1"$'\t'}"
+  [[ "$rest" == "$UPGRADE_DEPS_MAP" ]] && return 0
+  printf '%s' "${rest%%$'\n'*}"
+  return 0
+}
+
+# _upgrade_deps_notice — print the packages each candidate would pull in.
+# The count in the table says how many; this says which, the way the
+# Homebrew prompt being suppressed would have. Prints nothing when no
+# candidate installs anything new.
+# Args:    none (reads upgrade_list, UPGRADE_DEPS_MAP)
+# Stdout:  "New dependencies:" followed by one "  pkg: dep ..." per package
+# Return:  0
+_upgrade_deps_notice() {
+  [[ -n "$UPGRADE_DEPS_MAP" ]] || return 0
+  local i d shown=false
+  for i in "${!upgrade_list[@]}"; do
+    d="$(_upgrade_deps_for "${upgrade_list[$i]}")"
+    [[ -n "$d" ]] || continue
+    $shown || { echo "New dependencies (installed alongside):"; shown=true; }
+    printf '  %s: %s\n' "${upgrade_list[$i]}" "$d"
+  done
+  return 0
+}
+
 # run_upgrade — main flow: read `brew outdated`, classify each package by semver
 # bump, gate by level, then print the plan (DRY_RUN) or review-and-execute.
 # Unless DRY_RUN or YES_FLAG, candidates go through a review gate before
@@ -104,6 +178,8 @@ run_upgrade() {
     esac
   done <<<"$out"
 
+  _upgrade_deps_build
+
   # One row builder for every consumer of the candidate list: the
   # --dry-run plan, the no-fzf fallback table, the fzf picker rows and
   # the "Upgrading N package(s)" listing all print report_rows. Columns
@@ -113,13 +189,27 @@ run_upgrade() {
   # A cask/formula column follows the name: "formula" is muted and "cask"
   # left in the default color, so the minority stands out by contrast
   # without borrowing a semantic (risk/cleanup) color.
-  local i name_w=0 old_w=0 new_w=0 m_old m_new m_kind m_score m_type
+  # The "+N deps" column counts what the suppressed Homebrew prompt would
+  # have disclosed; it is omitted entirely when no candidate installs
+  # anything new, so the common row keeps its old shape. Trailing columns
+  # go through one array rather than one branch per combination.
+  local i name_w=0 old_w=0 new_w=0 deps_w=0 m_old m_new m_kind m_score m_type m_deps
+  local d
+  local -a dparts=()
   for i in "${!upgrade_list[@]}"; do
     IFS='|' read -r m_old m_new m_kind m_score <<<"${upgrade_meta[$i]}"
     (( ${#upgrade_list[$i]} > name_w )) && name_w=${#upgrade_list[$i]}
     (( ${#m_old} > old_w )) && old_w=${#m_old}
     (( ${#m_new} > new_w )) && new_w=${#m_new}
+    d="$(_upgrade_deps_for "${upgrade_list[$i]}")"
+    if [[ -n "$d" ]]; then
+      # shellcheck disable=SC2206 # dependency names never contain spaces
+      dparts=($d)
+      m_deps="+${#dparts[@]} deps"
+      (( ${#m_deps} > deps_w )) && deps_w=${#m_deps}
+    fi
   done
+  local -a trail=()
   for i in "${!upgrade_list[@]}"; do
     IFS='|' read -r m_old m_new m_kind m_score <<<"${upgrade_meta[$i]}"
     if is_cask "${upgrade_list[$i]}"; then
@@ -127,14 +217,24 @@ run_upgrade() {
     else
       m_type="$(ui_colorize 7 "$COLOR_MUTED" "formula")"
     fi
-    if [[ -n "$m_score" ]]; then
-      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "" "$m_type" \
-        "$old_w" "$m_old" "" "->" "$new_w" "$m_new" "" "[${m_kind}]" \
-        "" "$(ui_colorize "" "$(_depgraph_risk_color "$m_score")" "risk:${m_score}")")")
-    else
-      report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "" "$m_type" \
-        "$old_w" "$m_old" "" "->" "$new_w" "$m_new" "" "[${m_kind}]")")
+    trail=()
+    if (( deps_w > 0 )); then
+      d="$(_upgrade_deps_for "${upgrade_list[$i]}")"
+      if [[ -n "$d" ]]; then
+        # shellcheck disable=SC2206 # dependency names never contain spaces
+        dparts=($d)
+        m_deps="+${#dparts[@]} deps"
+      else
+        m_deps=""
+      fi
+      trail+=("$deps_w" "$m_deps")
     fi
+    if [[ -n "$m_score" ]]; then
+      trail+=("" "$(ui_colorize "" "$(_depgraph_risk_color "$m_score")" "risk:${m_score}")")
+    fi
+    report_rows+=("$(ui_table_row "$name_w" "${upgrade_list[$i]}" "" "$m_type" \
+      "$old_w" "$m_old" "" "->" "$new_w" "$m_new" "" "[${m_kind}]" \
+      ${trail[@]+"${trail[@]}"})")
   done
 
   if (( skipped_nonsemver > 0 )); then
@@ -148,6 +248,7 @@ run_upgrade() {
     fi
     echo "Upgrade candidates (${#upgrade_list[@]}) [level=${LEVEL}, or-lower=${OR_LOWER}]:"
     printf '  - %s\n' "${report_rows[@]}"
+    _upgrade_deps_notice
     return 0
   fi
 
@@ -155,6 +256,8 @@ run_upgrade() {
     echo "No packages to upgrade (level=${LEVEL}, or-lower=${OR_LOWER})."
     return 0
   fi
+
+  _upgrade_deps_notice
 
   # Review gate: default before every execution, skipped only by --yes.
   # fzf multi-select when available; a single [y/N] for the whole batch
@@ -223,7 +326,13 @@ run_upgrade() {
     name="${upgrade_list[$i]}"
     IFS='|' read -r old_sv new_sv kind score <<<"${upgrade_meta[$i]}"
     printf '\r\033[K[%d/%d] ==> brew upgrade %s\n' "$((i+1))" "$total" "$name"
-    if ! brew upgrade "$name"; then
+    # The review gate above is where this selection was confirmed, and it
+    # listed the dependencies each upgrade pulls in, so Homebrew's own ask
+    # mode would be a second prompt for a decision already made. Set as an
+    # environment variable rather than --no-ask: the flag only exists from
+    # Homebrew 6.0 and older versions reject it outright, while an unknown
+    # variable is simply ignored.
+    if ! HOMEBREW_NO_ASK=1 brew upgrade "$name"; then
       echo "Failed to upgrade: $name" >&2
       fail=$((fail+1))
       continue

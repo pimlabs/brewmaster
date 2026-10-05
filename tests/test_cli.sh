@@ -8,6 +8,11 @@ BM="$DIR/../bin/brewmaster"
 
 MOCK="$(mktemp -d)"
 AUDIT_DIR="$(mktemp -d)"
+# The mock records every `brew deps` call so a test can prove the whole
+# candidate list is covered by one invocation, not one per package.
+DEPS_LOG="$AUDIT_DIR/deps.calls"
+ASK_LOG="$AUDIT_DIR/ask.env"
+export DEPS_LOG ASK_LOG
 trap 'rm -rf "$MOCK" "$AUDIT_DIR"' EXIT
 export BREWMASTER_AUDIT_LOG="$AUDIT_DIR/audit.log"
 cat > "$MOCK/brew" <<'EOF'
@@ -15,7 +20,9 @@ cat > "$MOCK/brew" <<'EOF'
 case "$1" in
   list)     echo "somecask" ;;                                  # brew list --cask
   outdated) printf 'foo (1.0.0) < 1.0.5\nbar (2.1.0) < 2.4.0\nbaz (3.0.0) < 4.0.0\n' ;;
-  upgrade)  echo "upgraded $2" ;;
+  upgrade)  echo "upgraded $2"; echo "${HOMEBREW_NO_ASK:-unset}" >> "$ASK_LOG" ;;
+  deps)     printf 'deps %s\n' "$*" >> "$DEPS_LOG"
+            printf 'bar: libz\nfoo: liba libb\n' ;;
 esac
 EOF
 chmod +x "$MOCK/brew"
@@ -195,6 +202,52 @@ for a in "$header" "$command_c"; do
   done
 done
 $distinct && ok || bad "COLOR_HEADER/COLOR_COMMAND must differ from COLOR_OK/WARN/HIGH"
+
+# --- dependency disclosure and the suppressed Homebrew prompt ---
+# Homebrew 6 asks before an upgrade that pulls in packages the user did not
+# name. brewmaster suppresses that second prompt, so the plan has to show
+# what it would have said: a "+N deps" count per row and the names below.
+: > "$DEPS_LOG"; : > "$ASK_LOG"
+out="$(run upgrade --major --or-lower --dry-run 2>/dev/null)"
+echo "$out" | grep -qE '  - foo .*\+2 deps'  && ok || bad "dry-run: foo should carry +2 deps"
+echo "$out" | grep -qE '  - bar .*\+1 deps'  && ok || bad "dry-run: bar should carry +1 deps"
+echo "$out" | grep -q 'New dependencies'      && ok || bad "dry-run: should head the dependency list"
+echo "$out" | grep -qE '^  foo: liba libb$'   && ok || bad "dry-run: should name foo's new dependencies"
+echo "$out" | grep -qE '^  bar: libz$'        && ok || bad "dry-run: should name bar's new dependencies"
+echo "$out" | grep -qE '^  baz:'              && bad "dry-run: baz installs nothing new, must not be listed" || ok
+
+# One batched `brew deps` for the whole list: --for-each gives a line per
+# package, where a bare --missing over several names returns only their
+# intersection. One call also keeps a hundred candidates to one subprocess.
+[ "$(grep -c . "$DEPS_LOG")" = "1" ] && ok || bad "deps should be read in 1 call, got $(grep -c . "$DEPS_LOG")"
+grep -q -- '--for-each' "$DEPS_LOG"   && ok || bad "deps call should pass --for-each"
+grep -q -- '--missing'  "$DEPS_LOG"   && ok || bad "deps call should pass --missing"
+grep -q -- '--formula'  "$DEPS_LOG"   && ok || bad "deps call should pass --formula (casks resolve differently)"
+grep -q 'somecask' "$DEPS_LOG"        && bad "deps call must not include casks" || ok
+
+# Execution passes HOMEBREW_NO_ASK rather than --no-ask: the flag only
+# exists from Homebrew 6.0 and older versions reject it outright.
+: > "$ASK_LOG"
+out="$(run upgrade --patch --yes 2>/dev/null)"
+echo "$out" | grep -q 'upgraded foo'    && ok || bad "execution should still upgrade foo"
+[ "$(head -n1 "$ASK_LOG")" = "1" ]      && ok || bad "brew upgrade should see HOMEBREW_NO_ASK=1, got '$(head -n1 "$ASK_LOG")'"
+
+# No missing dependencies: the column and the listing both disappear, so
+# the ordinary row keeps the shape it had before this feature.
+cat > "$MOCK/brew" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  list)     echo "somecask" ;;
+  outdated) printf 'foo (1.0.0) < 1.0.5\n' ;;
+  deps)     printf 'foo: \n' ;;
+  upgrade)  echo "upgraded $2" ;;
+esac
+EOF
+chmod +x "$MOCK/brew"
+out="$(run upgrade --dry-run 2>/dev/null)"
+echo "$out" | grep -q 'deps'             && bad "no missing deps: no deps column expected" || ok
+echo "$out" | grep -q 'New dependencies' && bad "no missing deps: no listing expected" || ok
+echo "$out" | grep -qE '  - foo '        && ok || bad "no missing deps: the row should still render"
 
 echo "Passed: $pass, Failed: $fail"
 (( fail == 0 ))
