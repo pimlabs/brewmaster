@@ -7,6 +7,36 @@ brewmaster adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [0.15.2] — 2026-10-05
+
+### Fixed
+
+- The review gate is the only confirmation again. Homebrew 6.0 made ask
+  mode the default for `install`, `upgrade` and `reinstall`: it prints the
+  plan and prompts whenever that plan pulls in packages the user did not
+  name, so after ticking a selection in the picker the user was asked a
+  second time, once per package with missing dependencies. `run_upgrade`
+  now sets `HOMEBREW_NO_ASK=1` for the upgrade it was told to perform. Not
+  `--no-ask`: that switch only exists from Homebrew 6.0 and earlier
+  versions reject it as an unknown option, while an unknown environment
+  variable is simply ignored
+
+### Changed
+
+- The gate discloses what that prompt used to: a `+N deps` column on each
+  row and the dependency names below it, in the `--dry-run` plan and
+  before the gate. Without it, suppressing the prompt would have traded a
+  double confirmation for a less informed single one, since the gate
+  listed only the outdated packages and never what came with them. The
+  column is omitted entirely when nothing new would be installed, so the
+  ordinary row keeps the shape it had
+- The dependency data costs one subprocess for the whole candidate list:
+  `brew deps --missing --for-each --formula` prints one `name: dep ...`
+  line per package, where a bare `--missing` over several names would
+  return their intersection instead. Casks are left out, since `brew deps`
+  answers for them with the formulae a cask declares rather than what it
+  would install
+
 ## [0.15.1] — 2026-09-14
 
 ### Changed
